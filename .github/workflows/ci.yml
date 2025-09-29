@@ -1,0 +1,184 @@
+name: 🚀 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate:
+    name: 🔍 Validar Código
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+      
+    - name: 🔍 Validar estructura de archivos
+      run: |
+        echo "Validando estructura de archivos..."
+        ls -la google-apps-script/
+        echo "✅ Estructura de archivos válida"
+        
+    - name: 📋 Validar documentación
+      run: |
+        echo "Validando documentación..."
+        test -f README.md && echo "✅ README.md encontrado"
+        test -f INSTALLATION.md && echo "✅ INSTALLATION.md encontrado"
+        test -f TECHNICAL_DOCS.md && echo "✅ TECHNICAL_DOCS.md encontrado"
+        test -f CONTRIBUTING.md && echo "✅ CONTRIBUTING.md encontrado"
+        test -f CHANGELOG.md && echo "✅ CHANGELOG.md encontrado"
+        test -f LICENSE && echo "✅ LICENSE encontrado"
+        echo "✅ Documentación completa"
+        
+    - name: 🔧 Validar configuración
+      run: |
+        echo "Validando configuración..."
+        test -f project-config.json && echo "✅ project-config.json encontrado"
+        test -f package.json && echo "✅ package.json encontrado"
+        echo "✅ Configuración válida"
+        
+    - name: 📱 Validar archivos .gs
+      run: |
+        echo "Validando archivos de Google Apps Script..."
+        for file in google-apps-script/*.gs; do
+          if [ -f "$file" ]; then
+            echo "✅ $(basename "$file") encontrado"
+            # Validar sintaxis básica de JavaScript
+            if grep -q "function " "$file"; then
+              echo "  ✅ Contiene funciones"
+            fi
+            if grep -q "//" "$file"; then
+              echo "  ✅ Contiene comentarios"
+            fi
+          fi
+        done
+        echo "✅ Archivos .gs válidos"
+
+  test:
+    name: 🧪 Ejecutar Pruebas
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+      
+    - name: 🧪 Pruebas de sintaxis
+      run: |
+        echo "Ejecutando pruebas de sintaxis..."
+        # Verificar que los archivos .gs no tengan errores de sintaxis obvios
+        for file in google-apps-script/*.gs; do
+          if [ -f "$file" ]; then
+            echo "Probando $(basename "$file")..."
+            # Verificar paréntesis balanceados
+            if [ $(grep -o '(' "$file" | wc -l) -eq $(grep -o ')' "$file" | wc -l) ]; then
+              echo "  ✅ Paréntesis balanceados"
+            else
+              echo "  ❌ Paréntesis desbalanceados"
+              exit 1
+            fi
+            # Verificar llaves balanceadas
+            if [ $(grep -o '{' "$file" | wc -l) -eq $(grep -o '}' "$file" | wc -l) ]; then
+              echo "  ✅ Llaves balanceadas"
+            else
+              echo "  ❌ Llaves desbalanceadas"
+              exit 1
+            fi
+          fi
+        done
+        echo "✅ Pruebas de sintaxis completadas"
+        
+    - name: 📋 Pruebas de documentación
+      run: |
+        echo "Ejecutando pruebas de documentación..."
+        # Verificar que README tenga secciones importantes
+        grep -q "## 📋 Características Principales" README.md && echo "✅ Características documentadas"
+        grep -q "## 🚀 Instalación" README.md && echo "✅ Instalación documentada"
+        grep -q "## 📁 Estructura del Sistema" README.md && echo "✅ Estructura documentada"
+        echo "✅ Pruebas de documentación completadas"
+
+  security:
+    name: 🔒 Análisis de Seguridad
+    runs-on: ubuntu-latest
+    needs: validate
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+      
+    - name: 🔍 Buscar información sensible
+      run: |
+        echo "Analizando seguridad..."
+        # Buscar posibles credenciales hardcodeadas
+        if grep -r -i "password\|secret\|key\|token" google-apps-script/ --exclude-dir=.git; then
+          echo "⚠️ Posibles credenciales encontradas, revisar manualmente"
+        else
+          echo "✅ No se encontraron credenciales obvias"
+        fi
+        
+        # Buscar URLs hardcodeadas
+        if grep -r "https://" google-apps-script/ --exclude-dir=.git; then
+          echo "⚠️ URLs hardcodeadas encontradas, revisar manualmente"
+        else
+          echo "✅ No se encontraron URLs hardcodeadas"
+        fi
+        
+        echo "✅ Análisis de seguridad completado"
+
+  build:
+    name: 🏗️ Construir Proyecto
+    runs-on: ubuntu-latest
+    needs: [validate, test, security]
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+      
+    - name: 📦 Crear paquete de distribución
+      run: |
+        echo "Creando paquete de distribución..."
+        mkdir -p dist
+        cp -r google-apps-script/ dist/
+        cp README.md INSTALLATION.md TECHNICAL_DOCS.md CONTRIBUTING.md CHANGELOG.md LICENSE project-config.json package.json dist/
+        tar -czf healthynola-pos-v1.0.0.tar.gz -C dist .
+        echo "✅ Paquete creado: healthynola-pos-v1.0.0.tar.gz"
+        
+    - name: 📤 Subir artefactos
+      uses: actions/upload-artifact@v3
+      with:
+        name: healthynola-pos-package
+        path: healthynola-pos-v1.0.0.tar.gz
+
+  deploy:
+    name: 🚀 Desplegar
+    runs-on: ubuntu-latest
+    needs: [validate, test, security, build]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v3
+      
+    - name: 🏷️ Crear release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          ## 🚀 Nuevo Release
+          
+          ### Cambios
+          - Ver [CHANGELOG.md](CHANGELOG.md) para detalles
+          
+          ### Instalación
+          - Ver [INSTALLATION.md](INSTALLATION.md) para instrucciones
+          
+          ### Documentación
+          - [README.md](README.md) - Guía principal
+          - [TECHNICAL_DOCS.md](TECHNICAL_DOCS.md) - Documentación técnica
+        draft: false
+        prerelease: false

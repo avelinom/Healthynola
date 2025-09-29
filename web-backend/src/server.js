@@ -1,0 +1,124 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+require('dotenv').config();
+
+const config = require('./config');
+const logger = require('./utils/logger');
+const errorHandler = require('./middleware/errorHandler');
+const notFound = require('./middleware/notFound');
+
+// Import routes
+const authRoutes = require('./routes/auth');
+const salesRoutes = require('./routes/sales');
+const inventoryRoutes = require('./routes/inventory');
+const productsRoutes = require('./routes/products');
+const customersRoutes = require('./routes/customers');
+const reportsRoutes = require('./routes/reports');
+const backupRoutes = require('./routes/backup');
+
+const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST']
+  }
+});
+
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use(limiter);
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Compression middleware
+app.use(compression());
+
+// Logging middleware
+app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: process.env.npm_package_version || '1.0.0'
+  });
+});
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/customers', customersRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/backup', backupRoutes);
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  logger.info(`Client connected: ${socket.id}`);
+  
+  socket.on('join-room', (room) => {
+    socket.join(room);
+    logger.info(`Client ${socket.id} joined room: ${room}`);
+  });
+  
+  socket.on('disconnect', () => {
+    logger.info(`Client disconnected: ${socket.id}`);
+  });
+});
+
+// Make io available to routes
+app.set('io', io);
+
+// Error handling middleware
+app.use(notFound);
+app.use(errorHandler);
+
+// Start server
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  logger.info(`🚀 Healthynola POS Backend running on port ${PORT}`);
+  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    logger.info('Process terminated');
+    process.exit(0);
+  });
+});
+
+module.exports = { app, server, io };

@@ -1,0 +1,230 @@
+{
+  "name": "Healthynola POS System",
+  "version": "1.0.0",
+  "description": "Sistema completo de gestión de inventario y ventas para granola",
+  "author": "Healthynola Team",
+  "license": "MIT",
+  "platform": "Google Apps Script",
+  "language": "JavaScript",
+  "dependencies": {
+    "google-apps-script": "latest"
+  },
+  "features": {
+    "inventory_management": true,
+    "sales_tracking": true,
+    "production_management": true,
+    "client_management": true,
+    "reporting": true,
+    "mobile_interface": true,
+    "multi_warehouse": true,
+    "consignment_sales": true
+  },
+  "warehouses": [
+    "Principal",
+    "MMM", 
+    "DVP"
+  ],
+  "client_types": [
+    "Regular",
+    "Mayorista",
+    "Consignación",
+    "VIP"
+  ],
+  "payment_methods": [
+    "Efectivo",
+    "Transferencia",
+    "Regalo",
+    "Consignación"
+  ],
+  "modules": {
+    "system": {
+      "file": "is.gs",
+      "description": "Inicialización y configuración del sistema",
+      "functions": [
+        "configurarSistemaPOSCompleto",
+        "listarHojasExistentes",
+        "validarSistemaCompleto"
+      ]
+    },
+    "sales": {
+      "file": "rvm.gs",
+      "description": "Gestión de ventas móviles",
+      "functions": [
+        "registrarVentaMovil",
+        "configurarHojaVentaMovil",
+        "limpiarFormularioVentaMovil"
+      ]
+    },
+    "production": {
+      "file": "rp.gs",
+      "description": "Gestión de producción y lotes",
+      "functions": [
+        "registrarProduccion",
+        "limpiarHojaProduccion"
+      ]
+    },
+    "inventory": {
+      "file": "ri.gs",
+      "description": "Control de inventario",
+      "functions": [
+        "actualizarInventarioDinamico",
+        "mostrarInventarioBajo",
+        "reporteInventarioCompleto"
+      ]
+    },
+    "products": {
+      "file": "rps.gs",
+      "description": "Gestión de productos",
+      "functions": [
+        "registrarProducto",
+        "mostrarTodosLosProductos"
+      ]
+    },
+    "transfers": {
+      "file": "tea.gs",
+      "description": "Transferencias entre almacenes",
+      "functions": [
+        "transferirEntreAlmacenes",
+        "limpiarHojaTransferencias"
+      ]
+    },
+    "consignments": {
+      "file": "rc.gs",
+      "description": "Gestión de consignaciones",
+      "functions": [
+        "registrarConsignacion",
+        "limpiarHojaConsignaciones"
+      ]
+    },
+    "clients": {
+      "file": "rcs.gs",
+      "description": "Gestión de clientes",
+      "functions": [
+        "registrarCliente",
+        "mostrarTodosLosClientes"
+      ]
+    },
+    "daily_reports": {
+      "file": "rvd.gs",
+      "description": "Reportes de ventas diarias",
+      "functions": [
+        "resumenVentasHoy",
+        "resumenVentasFecha",
+        "resumenVentasRango"
+      ]
+    },
+    "vendor_reports": {
+      "file": "vxv.gs",
+      "description": "Reportes de ventas por vendedor",
+      "functions": [
+        "reporteVentasPorVendedor",
+        "compararVendedores",
+        "reporteVendedorIndividual"
+      ]
+    },
+    "inventory_reports": {
+      "file": "rii.gs",
+      "description": "Reportes de inventario",
+      "functions": [
+        "reporteInventarioCompleto",
+        "reporteInventarioBajo",
+        "reporteMovimientoInventario"
+      ]
+    }
+  },
+  "sheets": {
+    "Ventas": {
+      "description": "Registro de todas las ventas",
+      "columns": [
+        "Fecha", "Cliente", "Producto", "Cantidad", "Precio Unitario",
+        "Subtotal", "Método de Pago", "Total", "Vendedor", "Almacén", "Notas"
+      ]
+    },
+    "Inventario": {
+      "description": "Control de stock por almacén",
+      "columns": [
+        "Producto", "Almacén", "Cantidad Actual", "Cantidad Mínima",
+        "Última Actualización", "Estado", "Notas"
+      ]
+    },
+    "Productos": {
+      "description": "Catálogo de productos",
+      "columns": [
+        "Código", "Nombre", "Descripción", "Precio", "Costo",
+        "Categoría", "Unidad", "Estado", "Fecha Creación"
+      ]
+    },
+    "Producción": {
+      "description": "Registro de lotes producidos",
+      "columns": [
+        "Fecha Producción", "Lote", "Producto", "Cantidad Producida",
+        "Almacén Destino", "Costo Total", "Notas"
+      ]
+    },
+    "Transferencias": {
+      "description": "Movimientos entre almacenes",
+      "columns": [
+        "Fecha", "Producto", "Cantidad", "Almacén Origen",
+        "Almacén Destino", "Motivo", "Responsable"
+      ]
+    },
+    "Consignaciones": {
+      "description": "Ventas a consignación",
+      "columns": [
+        "Fecha", "Cliente", "Producto", "Cantidad", "Precio Unitario",
+        "Total", "Días Vencimiento", "Estado", "Notas"
+      ]
+    },
+    "Clientes": {
+      "description": "Base de datos de clientes",
+      "columns": [
+        "Nombre", "Teléfono", "Email", "Dirección", "Ciudad",
+        "Tipo", "Fecha Registro", "Estado"
+      ]
+    },
+    "Lotes": {
+      "description": "Control de lotes y vencimientos",
+      "columns": [
+        "Lote", "Producto", "Fecha Producción", "Fecha Vencimiento",
+        "Cantidad Inicial", "Cantidad Disponible", "Almacén", "Estado"
+      ]
+    },
+    "Gastos": {
+      "description": "Registro de gastos del negocio",
+      "columns": [
+        "Fecha", "Concepto", "Categoría", "Monto",
+        "Método de Pago", "Responsable", "Notas"
+      ]
+    },
+    "Venta Movil": {
+      "description": "Interfaz para ventas móviles",
+      "columns": [
+        "Cliente", "Producto", "Cantidad", "Método de Pago",
+        "Envío", "Notas", "Almacén", "Vendedor"
+      ]
+    },
+    "Log": {
+      "description": "Registro de actividades del sistema",
+      "columns": [
+        "Timestamp", "Función", "Tipo", "Mensaje", "Nivel"
+      ]
+    }
+  },
+  "installation": {
+    "steps": [
+      "Crear nueva hoja de cálculo en Google Sheets",
+      "Abrir editor de Apps Script",
+      "Copiar archivos .gs al editor",
+      "Ejecutar configurarSistemaPOSCompleto()",
+      "Verificar configuración con validarSistemaCompleto()"
+    ]
+  },
+  "troubleshooting": {
+    "common_issues": [
+      "Hoja no encontrada: Verificar que todas las hojas estén creadas",
+      "Error de permisos: Verificar permisos de la cuenta de Google",
+      "Datos no se actualizan: Revisar triggers y funciones",
+      "Reportes vacíos: Verificar que hay datos en las hojas"
+    ]
+  }
+}

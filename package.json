@@ -1,0 +1,89 @@
+{
+  "name": "healthynola-pos-system",
+  "version": "1.0.0",
+  "description": "Sistema completo de gestión de inventario y ventas para granola",
+  "main": "google-apps-script/menu.gs",
+  "scripts": {
+    "install": "echo 'Siga las instrucciones en INSTALLATION.md para instalar el sistema'",
+    "test": "echo 'Ejecute las funciones de prueba en Google Apps Script'",
+    "build": "echo 'No se requiere build para Google Apps Script'",
+    "deploy": "echo 'Siga las instrucciones en INSTALLATION.md para desplegar'"
+  },
+  "keywords": [
+    "pos",
+    "inventory",
+    "sales",
+    "granola",
+    "google-apps-script",
+    "google-sheets",
+    "business-management",
+    "retail",
+    "inventory-management",
+    "sales-tracking"
+  ],
+  "author": "Healthynola Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amiguelez/bewealth.git"
+  },
+  "bugs": {
+    "url": "https://github.com/amiguelez/bewealth/issues"
+  },
+  "homepage": "https://github.com/amiguelez/bewealth#readme",
+  "engines": {
+    "google-apps-script": ">=1.0.0"
+  },
+  "platforms": [
+    "google-sheets",
+    "google-apps-script"
+  ],
+  "dependencies": {},
+  "devDependencies": {},
+  "files": [
+    "google-apps-script/",
+    "README.md",
+    "INSTALLATION.md",
+    "TECHNICAL_DOCS.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "project-config.json"
+  ],
+  "directories": {
+    "lib": "google-apps-script",
+    "doc": "docs",
+    "test": "tests"
+  },
+  "config": {
+    "warehouses": ["Principal", "MMM", "DVP"],
+    "client_types": ["Regular", "Mayorista", "Consignación", "VIP"],
+    "payment_methods": ["Efectivo", "Transferencia", "Regalo", "Consignación"]
+  },
+  "healthynola": {
+    "version": "1.0.0",
+    "modules": {
+      "system": "is.gs",
+      "sales": "rvm.gs",
+      "production": "rp.gs",
+      "inventory": "ri.gs",
+      "products": "rps.gs",
+      "transfers": "tea.gs",
+      "consignments": "rc.gs",
+      "clients": "rcs.gs",
+      "daily_reports": "rvd.gs",
+      "vendor_reports": "vxv.gs",
+      "inventory_reports": "rii.gs"
+    },
+    "features": {
+      "inventory_management": true,
+      "sales_tracking": true,
+      "production_management": true,
+      "client_management": true,
+      "reporting": true,
+      "mobile_interface": true,
+      "multi_warehouse": true,
+      "consignment_sales": true
+    }
+  }
+}
