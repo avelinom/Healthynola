@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const logger = require('../utils/logger');
+const PDFDocument = require('pdfkit');
+
+// Helper function to get Mexico Central time (GMT-6)
+const getMexicoCentralTime = () => {
+  const now = new Date();
+  // Subtract 6 hours to convert from UTC to Mexico Central
+  const mexicoTime = new Date(now.getTime() - (6 * 60 * 60 * 1000));
+  return mexicoTime;
+};
+const fs = require('fs');
 
 // Helper to transform sale from DB to frontend format
 const transformSale = (dbSale) => {
@@ -12,6 +22,7 @@ const transformSale = (dbSale) => {
     customerName: dbSale.customer_name, // Joined from customers table
     productId: dbSale.product_id,
     productName: dbSale.product_name, // Joined from products table
+    productCategory: dbSale.product_category, // Joined from products table
     userId: dbSale.user_id,
     quantity: parseFloat(dbSale.cantidad),
     unitPrice: parseFloat(dbSale.precio_unitario),
@@ -38,7 +49,8 @@ router.get('/', async (req, res) => {
       .select(
         'sales.*',
         'customers.nombre as customer_name',
-        'products.nombre as product_name'
+        'products.nombre as product_name',
+        'products.categoria as product_category'
       )
       .orderBy('sales.created_at', 'desc');
 
@@ -51,6 +63,416 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al obtener las ventas',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/sales/report/pdf - Generate PDF sales report (MUST be before /report)
+router.get('/report/pdf', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    let query = db('sales')
+      .leftJoin('customers', 'sales.customer_id', 'customers.id')
+      .join('products', 'sales.product_id', 'products.id')
+      .select(
+        'sales.*',
+        'customers.nombre as customer_name',
+        'products.nombre as product_name',
+        'products.categoria as product_category'
+      )
+      .where('sales.cancelada', false);
+
+    // Apply date filters if provided
+    // Note: dates in DB are stored in Mexico Central time (GMT-6)
+    if (startDate) {
+      // Start of day: 00:00:00
+      const startDateTime = new Date(startDate + 'T00:00:00');
+      query = query.where('sales.created_at', '>=', startDateTime);
+    }
+    if (endDate) {
+      // End of day: 23:59:59
+      const endDateTime = new Date(endDate + 'T23:59:59');
+      query = query.where('sales.created_at', '<=', endDateTime);
+    }
+
+    const sales = await query.orderBy('sales.created_at', 'desc');
+
+    // Calculate report data
+    const reportData = {
+      summary: {
+        totalSales: 0,
+        cashSales: 0,
+        transferSales: 0,
+        consignmentSales: 0,
+        giftSales: 0,
+        totalTransactions: sales.length
+      },
+      cashOnHand: 0,
+      bankDeposits: 0,
+      consignments: [],
+      gifts: [],
+      salesByBagType: {},
+      salesByWarehouse: {},
+      salesByPaymentMethod: {
+        Efectivo: 0,
+        Transferencia: 0,
+        Consignación: 0,
+        Regalo: 0
+      }
+    };
+
+    // Process each sale
+    sales.forEach(sale => {
+      const total = parseFloat(sale.total);
+      const paymentMethod = sale.metodo_pago;
+      const productCategory = sale.product_category;
+      const warehouse = sale.almacen;
+
+      // Update totals
+      reportData.summary.totalSales += total;
+      
+      // Update method-specific totals
+      if (paymentMethod === 'Efectivo') {
+        reportData.summary.cashSales += total;
+        reportData.cashOnHand += total;
+      } else if (paymentMethod === 'Transferencia') {
+        reportData.summary.transferSales += total;
+        reportData.bankDeposits += total;
+      } else if (paymentMethod === 'Consignación') {
+        reportData.summary.consignmentSales += total;
+      } else if (paymentMethod === 'Regalo') {
+        reportData.summary.giftSales += total;
+      }
+      
+      reportData.salesByPaymentMethod[paymentMethod] += total;
+
+      // Consignments and gifts
+      if (paymentMethod === 'Consignación') {
+        reportData.consignments.push({
+          productName: sale.product_name,
+          customerName: sale.customer_name || 'Cliente General',
+          amount: total,
+          quantity: parseFloat(sale.cantidad),
+          date: sale.created_at
+        });
+      } else if (paymentMethod === 'Regalo') {
+        reportData.gifts.push({
+          productName: sale.product_name,
+          customerName: sale.customer_name || 'Cliente General',
+          quantity: parseFloat(sale.cantidad),
+          date: sale.created_at
+        });
+      }
+
+      // Sales by bag type (using product category)
+      if (!reportData.salesByBagType[productCategory]) {
+        reportData.salesByBagType[productCategory] = {
+          total: 0,
+          quantity: 0,
+          products: []
+        };
+      }
+      reportData.salesByBagType[productCategory].total += total;
+      reportData.salesByBagType[productCategory].quantity += parseFloat(sale.cantidad);
+      
+      // Add product to bag type if not already present
+      const existingProduct = reportData.salesByBagType[productCategory].products.find(
+        p => p.name === sale.product_name
+      );
+      if (existingProduct) {
+        existingProduct.total += total;
+        existingProduct.quantity += parseFloat(sale.cantidad);
+      } else {
+        reportData.salesByBagType[productCategory].products.push({
+          name: sale.product_name,
+          total: total,
+          quantity: parseFloat(sale.cantidad)
+        });
+      }
+
+      // Sales by warehouse
+      if (!reportData.salesByWarehouse[warehouse]) {
+        reportData.salesByWarehouse[warehouse] = 0;
+      }
+      reportData.salesByWarehouse[warehouse] += total;
+    });
+
+    // Round all monetary values
+    reportData.summary.totalSales = Math.round(reportData.summary.totalSales * 100) / 100;
+    reportData.summary.cashSales = Math.round(reportData.summary.cashSales * 100) / 100;
+    reportData.summary.transferSales = Math.round(reportData.summary.transferSales * 100) / 100;
+    reportData.summary.consignmentSales = Math.round(reportData.summary.consignmentSales * 100) / 100;
+    reportData.summary.giftSales = Math.round(reportData.summary.giftSales * 100) / 100;
+    reportData.cashOnHand = Math.round(reportData.cashOnHand * 100) / 100;
+    reportData.bankDeposits = Math.round(reportData.bankDeposits * 100) / 100;
+
+    // Create PDF
+    const doc = new PDFDocument({ margin: 50 });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=reporte-ventas-${new Date().toISOString().split('T')[0]}.pdf`);
+
+    // Pipe PDF to response
+    doc.pipe(res);
+
+    // Add title
+    doc.fontSize(20).text('Reporte de Ventas Detallado', { align: 'center' });
+    doc.fontSize(10).text(`Generado: ${new Date().toLocaleString('es-MX')}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Financial Summary
+    doc.fontSize(14).text('Resumen Financiero', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(12);
+    doc.text(`Efectivo en Caja: $${reportData.cashOnHand.toFixed(2)}`);
+    doc.text(`  - ${reportData.summary.cashSales} ventas en efectivo`);
+    doc.moveDown(0.5);
+    doc.text(`Depósitos Bancarios: $${reportData.bankDeposits.toFixed(2)}`);
+    doc.text(`  - ${reportData.summary.transferSales} ventas por transferencia`);
+    doc.moveDown(1);
+
+    // Consignments
+    if (reportData.consignments.length > 0) {
+      doc.fontSize(14).text('Productos en Consignación', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10);
+      reportData.consignments.forEach((item, index) => {
+        doc.text(`${index + 1}. ${item.productName} - ${item.customerName}`);
+        doc.text(`   Cantidad: ${item.quantity}, Monto: $${item.amount.toFixed(2)}`);
+      });
+      doc.moveDown(1);
+    }
+
+    // Gifts
+    if (reportData.gifts.length > 0) {
+      doc.fontSize(14).text('Productos de Regalo', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10);
+      reportData.gifts.forEach((item, index) => {
+        doc.text(`${index + 1}. ${item.productName} - ${item.customerName}`);
+        doc.text(`   Cantidad: ${item.quantity}`);
+      });
+      doc.moveDown(1);
+    }
+
+    // Sales by Bag Type
+    doc.fontSize(14).text('Ventas por Tipo de Bolsa', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10);
+    Object.entries(reportData.salesByBagType).forEach(([category, data]) => {
+      doc.text(`${category}: $${data.total.toFixed(2)} (${data.quantity} unidades)`);
+      data.products.forEach(product => {
+        doc.text(`  - ${product.name}: $${product.total.toFixed(2)} (${product.quantity} unidades)`);
+      });
+      doc.moveDown(0.5);
+    });
+
+    // General Summary
+    doc.addPage();
+    doc.fontSize(14).text('Resumen General', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(12);
+    doc.text(`Total de Ventas: $${reportData.summary.totalSales.toFixed(2)}`);
+    doc.text(`Total de Transacciones: ${reportData.summary.totalTransactions}`);
+    doc.text(`Consignaciones: $${reportData.summary.consignmentSales.toFixed(2)}`);
+    doc.text(`Regalos: $${reportData.summary.giftSales.toFixed(2)}`);
+    doc.moveDown(1);
+
+    // Sales by Warehouse
+    doc.fontSize(14).text('Ventas por Almacén', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10);
+    Object.entries(reportData.salesByWarehouse).forEach(([warehouse, total]) => {
+      doc.text(`${warehouse}: $${total.toFixed(2)}`);
+    });
+
+    // Finalize PDF
+    doc.end();
+  } catch (error) {
+    logger.error('Error generating PDF report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar el reporte PDF',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/sales/report - Obtener reporte detallado de ventas
+router.get('/report', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    let query = db('sales')
+      .leftJoin('customers', 'sales.customer_id', 'customers.id')
+      .join('products', 'sales.product_id', 'products.id')
+      .select(
+        'sales.*',
+        'customers.nombre as customer_name',
+        'products.nombre as product_name',
+        'products.categoria as product_category'
+      )
+      .where('sales.cancelada', false);
+
+    // Apply date filters if provided
+    // Note: dates in DB are stored in Mexico Central time (GMT-6)
+    if (startDate) {
+      // Start of day: 00:00:00
+      const startDateTime = new Date(startDate + 'T00:00:00');
+      query = query.where('sales.created_at', '>=', startDateTime);
+    }
+    if (endDate) {
+      // End of day: 23:59:59
+      const endDateTime = new Date(endDate + 'T23:59:59');
+      query = query.where('sales.created_at', '<=', endDateTime);
+    }
+
+    const sales = await query.orderBy('sales.created_at', 'desc');
+
+    // Calculate report data
+    const reportData = {
+      summary: {
+        totalSales: 0,
+        cashSales: 0,
+        transferSales: 0,
+        consignmentSales: 0,
+        giftSales: 0,
+        totalTransactions: sales.length
+      },
+      cashOnHand: 0,
+      bankDeposits: 0,
+      consignments: [],
+      gifts: [],
+      salesByBagType: {},
+      salesByWarehouse: {},
+      salesByPaymentMethod: {
+        Efectivo: 0,
+        Transferencia: 0,
+        Consignación: 0,
+        Regalo: 0
+      }
+    };
+
+    // Process each sale
+    sales.forEach(sale => {
+      const total = parseFloat(sale.total);
+      const paymentMethod = sale.metodo_pago;
+      const productCategory = sale.product_category;
+      const warehouse = sale.almacen;
+
+      // Update totals
+      reportData.summary.totalSales += total;
+      
+      // Update method-specific totals
+      if (paymentMethod === 'Efectivo') {
+        reportData.summary.cashSales += total;
+      } else if (paymentMethod === 'Transferencia') {
+        reportData.summary.transferSales += total;
+      } else if (paymentMethod === 'Consignación') {
+        reportData.summary.consignmentSales += total;
+      } else if (paymentMethod === 'Regalo') {
+        reportData.summary.giftSales += total;
+      }
+      
+      reportData.salesByPaymentMethod[paymentMethod] += total;
+
+      // Cash on hand and bank deposits
+      if (paymentMethod === 'Efectivo') {
+        reportData.cashOnHand += total;
+      } else if (paymentMethod === 'Transferencia') {
+        reportData.bankDeposits += total;
+      }
+
+      // Consignments and gifts
+      if (paymentMethod === 'Consignación') {
+        reportData.consignments.push({
+          productName: sale.product_name,
+          customerName: sale.customer_name || 'Cliente General',
+          amount: total,
+          quantity: parseFloat(sale.cantidad),
+          date: sale.created_at
+        });
+      } else if (paymentMethod === 'Regalo') {
+        reportData.gifts.push({
+          productName: sale.product_name,
+          customerName: sale.customer_name || 'Cliente General',
+          quantity: parseFloat(sale.cantidad),
+          date: sale.created_at
+        });
+      }
+
+      // Sales by bag type (using product category)
+      if (!reportData.salesByBagType[productCategory]) {
+        reportData.salesByBagType[productCategory] = {
+          total: 0,
+          quantity: 0,
+          products: []
+        };
+      }
+      reportData.salesByBagType[productCategory].total += total;
+      reportData.salesByBagType[productCategory].quantity += parseFloat(sale.cantidad);
+      
+      // Add product to bag type if not already present
+      const existingProduct = reportData.salesByBagType[productCategory].products.find(
+        p => p.name === sale.product_name
+      );
+      if (existingProduct) {
+        existingProduct.total += total;
+        existingProduct.quantity += parseFloat(sale.cantidad);
+      } else {
+        reportData.salesByBagType[productCategory].products.push({
+          name: sale.product_name,
+          total: total,
+          quantity: parseFloat(sale.cantidad)
+        });
+      }
+
+      // Sales by warehouse
+      if (!reportData.salesByWarehouse[warehouse]) {
+        reportData.salesByWarehouse[warehouse] = 0;
+      }
+      reportData.salesByWarehouse[warehouse] += total;
+    });
+
+    // Round all monetary values
+    reportData.summary.totalSales = Math.round(reportData.summary.totalSales * 100) / 100;
+    reportData.summary.cashSales = Math.round(reportData.summary.cashSales * 100) / 100;
+    reportData.summary.transferSales = Math.round(reportData.summary.transferSales * 100) / 100;
+    reportData.summary.consignmentSales = Math.round(reportData.summary.consignmentSales * 100) / 100;
+    reportData.summary.giftSales = Math.round(reportData.summary.giftSales * 100) / 100;
+    reportData.cashOnHand = Math.round(reportData.cashOnHand * 100) / 100;
+    reportData.bankDeposits = Math.round(reportData.bankDeposits * 100) / 100;
+
+    // Round warehouse totals
+    Object.keys(reportData.salesByWarehouse).forEach(warehouse => {
+      reportData.salesByWarehouse[warehouse] = Math.round(reportData.salesByWarehouse[warehouse] * 100) / 100;
+    });
+
+    // Round payment method totals
+    Object.keys(reportData.salesByPaymentMethod).forEach(method => {
+      reportData.salesByPaymentMethod[method] = Math.round(reportData.salesByPaymentMethod[method] * 100) / 100;
+    });
+
+    // Round bag type totals
+    Object.keys(reportData.salesByBagType).forEach(category => {
+      reportData.salesByBagType[category].total = Math.round(reportData.salesByBagType[category].total * 100) / 100;
+      reportData.salesByBagType[category].products.forEach(product => {
+        product.total = Math.round(product.total * 100) / 100;
+      });
+    });
+
+    res.json({
+      success: true,
+      data: reportData
+    });
+  } catch (error) {
+    logger.error('Error generating sales report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar el reporte de ventas',
       error: error.message
     });
   }
@@ -116,6 +538,8 @@ router.post('/', async (req, res) => {
       });
     }
 
+    const mexicoTime = getMexicoCentralTime();
+    
     const [newSale] = await db('sales').insert({
       customer_id: customerId || null,
       product_id: productId,
@@ -129,8 +553,8 @@ router.post('/', async (req, res) => {
       almacen: warehouse,
       notas: notes || null,
       cancelada: false,
-      created_at: new Date(),
-      updated_at: new Date()
+      created_at: mexicoTime,
+      updated_at: mexicoTime
     }).returning('*');
 
     res.status(201).json({

@@ -44,3 +44,10 @@ node_modules/
 # Documentation drafts
 docs/drafts/
 *.draft.md
+
+# Frontend build files
+web-frontend/.next/
+web-frontend/node_modules/
+web-backend/node_modules/
+web-backend/uploads/receipts/*
+!web-backend/uploads/receipts/.gitkeep

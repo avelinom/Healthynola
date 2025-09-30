@@ -22,6 +22,7 @@ const customersRoutes = require('./routes/customers');
 const reportsRoutes = require('./routes/reports');
 const backupRoutes = require('./routes/backup');
 const transfersRoutes = require('./routes/transfers');
+const expensesRoutes = require('./routes/expenses');
 
 const app = express();
 const server = createServer(app);
@@ -65,6 +66,9 @@ app.use(compression());
 // Logging middleware
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
+// Serve static files (uploads)
+app.use('/uploads', express.static('uploads'));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -84,6 +88,7 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/transfers', transfersRoutes);
+app.use('/api/expenses', expensesRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
