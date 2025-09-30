@@ -8,7 +8,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
-const config = require('./config');
+const config = require('./config/config');
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const notFound = require('./middleware/notFound');
@@ -21,12 +21,17 @@ const productsRoutes = require('./routes/products');
 const customersRoutes = require('./routes/customers');
 const reportsRoutes = require('./routes/reports');
 const backupRoutes = require('./routes/backup');
+const transfersRoutes = require('./routes/transfers');
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://192.168.68.104:3000',
+      'http://192.168.68.104:3001'
+    ],
     methods: ['GET', 'POST']
   }
 });
@@ -34,7 +39,11 @@ const io = new Server(server, {
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://192.168.68.104:3000',
+    'http://192.168.68.104:3001'
+  ],
   credentials: true
 }));
 
@@ -74,6 +83,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/transfers', transfersRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -98,10 +108,12 @@ app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  logger.info(`🚀 Healthynola POS Backend running on port ${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0'; // Listen on all interfaces
+server.listen(PORT, HOST, () => {
+  logger.info(`🚀 Healthynola POS Backend running on ${HOST}:${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  logger.info(`📱 Mobile access: http://192.168.68.104:${PORT}`);
 });
 
 // Graceful shutdown
