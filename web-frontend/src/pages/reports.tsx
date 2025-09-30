@@ -182,6 +182,9 @@ const Reports: NextPage = () => {
     } else if (formData.reportType === 'expenses') {
       // Open expenses PDF in new tab
       window.open(`/api/expenses/report/pdf?${params.toString()}`, '_blank');
+    } else if (formData.reportType === 'margins') {
+      // Open margins PDF in new tab
+      window.open(`/api/sales/margins/pdf?${params.toString()}`, '_blank');
     }
   };
 
@@ -273,7 +276,7 @@ const Reports: NextPage = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Generar Reporte de Ventas
+                  Generar Reportes
                 </Typography>
                 <form onSubmit={handleSubmit}>
                   <Grid container spacing={2} alignItems="center">
@@ -309,6 +312,7 @@ const Reports: NextPage = () => {
                         >
                           <MenuItem value="sales">Ventas</MenuItem>
                           <MenuItem value="expenses">Gastos</MenuItem>
+                          <MenuItem value="margins">Márgenes</MenuItem>
                         </Select>
                       </FormControl>
                     </Grid>

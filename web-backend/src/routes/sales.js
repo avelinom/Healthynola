@@ -618,4 +618,175 @@ router.put('/:id/cancel', async (req, res) => {
   }
 });
 
+// GET /api/sales/margins/pdf - Generate margins report PDF
+router.get('/margins/pdf', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // 1. Get sales data
+    let salesQuery = db('sales')
+      .join('products', 'sales.product_id', 'products.id')
+      .select(
+        'sales.*',
+        'products.nombre as product_name',
+        'products.costo as product_cost'
+      )
+      .where('sales.cancelada', false);
+    
+    if (startDate) {
+      const startDateTime = new Date(startDate + 'T00:00:00');
+      salesQuery = salesQuery.where('sales.created_at', '>=', startDateTime);
+    }
+    if (endDate) {
+      const endDateTime = new Date(endDate + 'T23:59:59');
+      salesQuery = salesQuery.where('sales.created_at', '<=', endDateTime);
+    }
+    
+    const sales = await salesQuery;
+    
+    // 2. Get expenses data
+    let expensesQuery = db('expenses').select('*');
+    
+    if (startDate) {
+      expensesQuery = expensesQuery.where('fecha', '>=', startDate);
+    }
+    if (endDate) {
+      expensesQuery = expensesQuery.where('fecha', '<=', endDate);
+    }
+    
+    const expenses = await expensesQuery;
+    
+    // 3. Calculate metrics
+    const totalRevenue = sales.reduce((sum, sale) => sum + parseFloat(sale.total), 0);
+    const totalCostOfSales = sales.reduce((sum, sale) => {
+      const unitCost = parseFloat(sale.product_cost || 0);
+      const quantity = parseFloat(sale.cantidad);
+      return sum + (unitCost * quantity);
+    }, 0);
+    const totalExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.monto), 0);
+    
+    const grossProfit = totalRevenue - totalCostOfSales;
+    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+    
+    const netProfit = grossProfit - totalExpenses;
+    const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    
+    // 4. Breakdown by category
+    const salesByCategory = {};
+    sales.forEach(sale => {
+      const category = sale.product_category || 'Sin categoría';
+      if (!salesByCategory[category]) {
+        salesByCategory[category] = {
+          revenue: 0,
+          cost: 0,
+          quantity: 0
+        };
+      }
+      salesByCategory[category].revenue += parseFloat(sale.total);
+      salesByCategory[category].cost += parseFloat(sale.product_cost || 0) * parseFloat(sale.cantidad);
+      salesByCategory[category].quantity += parseFloat(sale.cantidad);
+    });
+    
+    // Calculate margins by category
+    Object.keys(salesByCategory).forEach(category => {
+      const cat = salesByCategory[category];
+      cat.grossProfit = cat.revenue - cat.cost;
+      cat.grossMargin = cat.revenue > 0 ? (cat.grossProfit / cat.revenue) * 100 : 0;
+    });
+    
+    // 5. Expenses by category
+    const expensesByCategory = {};
+    expenses.forEach(exp => {
+      const category = exp.categoria || 'Sin categoría';
+      if (!expensesByCategory[category]) {
+        expensesByCategory[category] = 0;
+      }
+      expensesByCategory[category] += parseFloat(exp.monto);
+    });
+    
+    // 6. Generate PDF
+    const doc = new PDFDocument({ margin: 50 });
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=reporte-margenes.pdf');
+    
+    doc.pipe(res);
+    
+    // Title
+    doc.fontSize(20).font('Helvetica-Bold').text('Reporte de Márgenes', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica').text(`Generado: ${new Date().toLocaleString('es-MX')}`, { align: 'center' });
+    
+    if (startDate || endDate) {
+      const dateRange = `Período: ${startDate || 'Inicio'} - ${endDate || 'Hoy'}`;
+      doc.text(dateRange, { align: 'center' });
+    }
+    
+    doc.moveDown(2);
+    
+    // Summary Section
+    doc.fontSize(14).font('Helvetica-Bold').text('Resumen Financiero');
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica');
+    
+    doc.text(`Ingresos Totales: $${totalRevenue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+    doc.text(`Costo de Ventas: $${totalCostOfSales.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+    doc.text(`Gastos Operativos: $${totalExpenses.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+    doc.moveDown(0.5);
+    
+    // Gross Margin
+    doc.fontSize(12).font('Helvetica-Bold')
+      .fillColor(grossMargin >= 0 ? 'green' : 'red')
+      .text(`Ganancia Bruta: $${grossProfit.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`, { continued: true })
+      .fillColor('black')
+      .font('Helvetica')
+      .text(` (${grossMargin.toFixed(2)}%)`);
+    
+    // Net Margin
+    doc.fontSize(12).font('Helvetica-Bold')
+      .fillColor(netMargin >= 0 ? 'green' : 'red')
+      .text(`Ganancia Neta: $${netProfit.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`, { continued: true })
+      .fillColor('black')
+      .font('Helvetica')
+      .text(` (${netMargin.toFixed(2)}%)`);
+    
+    doc.moveDown(2);
+    
+    // Sales by Category
+    doc.fontSize(14).font('Helvetica-Bold').text('Márgenes por Categoría de Producto');
+    doc.moveDown(0.5);
+    doc.fontSize(9).font('Helvetica');
+    
+    Object.keys(salesByCategory).forEach(category => {
+      const cat = salesByCategory[category];
+      doc.text(`${category}:`);
+      doc.text(`  Ventas: $${cat.revenue.toFixed(2)} | Costo: $${cat.cost.toFixed(2)} | Margen: ${cat.grossMargin.toFixed(2)}%`);
+      doc.moveDown(0.3);
+    });
+    
+    doc.moveDown(1);
+    
+    // Expenses by Category
+    doc.fontSize(14).font('Helvetica-Bold').text('Gastos por Categoría');
+    doc.moveDown(0.5);
+    doc.fontSize(9).font('Helvetica');
+    
+    Object.keys(expensesByCategory).forEach(category => {
+      const amount = expensesByCategory[category];
+      doc.text(`${category}: $${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+    });
+    
+    doc.end();
+    
+    logger.info('Margins report PDF generated');
+  } catch (error) {
+    logger.error('Error generating margins report PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al generar el reporte',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

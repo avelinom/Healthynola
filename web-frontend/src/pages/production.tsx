@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { NextPage } from 'next';
 import Head from 'next/head';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/store';
+import Layout from '@/components/Layout';
+import { useBatches } from '@/hooks/useBatches';
 import { useProducts } from '@/hooks/useProducts';
 import {
-  Grid,
+  Box,
+  Button,
   Card,
   CardContent,
   Typography,
-  TextField,
-  Button,
-  Select,
-  MenuItem,
   FormControl,
   InputLabel,
-  Box,
+  Select,
+  MenuItem,
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Chip,
+  CircularProgress,
+  Divider,
   Alert,
   Table,
   TableBody,
@@ -24,371 +30,499 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
-  Divider,
-  CircularProgress
+  IconButton
 } from '@mui/material';
 import {
   Factory as ProductionIcon,
+  LocalShipping as PackageIcon,
   Add as AddIcon,
-  Inventory as InventoryIcon,
-  CalendarToday as CalendarIcon,
-  Assignment as BatchIcon
+  Remove as RemoveIcon
 } from '@mui/icons-material';
-import Layout from '@/components/Layout';
+import { Batch } from '@/store/slices/batchesSlice';
 
-interface ProductionBatch {
-  id: number;
-  batchNumber: string;
-  product: string;
-  quantity: number;
-  unitCost: number;
-  totalCost: number;
-  productionDate: string;
-  expirationDate: string;
-  status: 'active' | 'expired' | 'depleted';
+interface PackagingItem {
+  productId: number;
+  productName: string;
+  tipoBolsa: '1kg' | '0.5kg' | '100g';
+  cantidadBolsas: number;
+  almacen: string;
 }
 
-const Production: NextPage = () => {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [quantity, setQuantity] = useState(25); // Default 25kg batch
-  const [unitCost, setUnitCost] = useState(0);
-  const [productionDate, setProductionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expirationDate, setExpirationDate] = useState('');
-  const [notes, setNotes] = useState('');
+const ProductionPage = () => {
+  const { batches, loading, fetchBatches, fetchBatch, completeBatch } = useBatches();
+  const { products, loadProducts } = useProducts();
+  const [selectedBatchId, setSelectedBatchId] = useState('');
+  const [selectedBatchDetails, setSelectedBatchDetails] = useState<Batch | null>(null);
+  const [openPackagingModal, setOpenPackagingModal] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [packagingItems, setPackagingItems] = useState<PackagingItem[]>([]);
+  const [newPackaging, setNewPackaging] = useState({
+    productId: '',
+    tipoBolsa: '1kg' as '1kg' | '0.5kg' | '100g',
+    cantidadBolsas: '',
+    almacen: 'Principal'
+  });
 
-  // Load products directly from API
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/products');
-        const data = await response.json();
-        setProducts(data.data || []);
-      } catch (error) {
-        console.error('Error loading products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      loadProducts();
-    }
+    setIsClient(true);
+    fetchBatches('planificado');
+    loadProducts();
   }, []);
 
-  // Filter active products and convert to production format
-  const activeProducts = products
-    .filter(product => product.activo)
-    .map(product => ({
-      id: product.id,
-      name: product.nombre,
-      avgCost: product.costo // Use costo as avgCost per kg
-    }));
-
-  // Mock recent batches
-  const recentBatches: ProductionBatch[] = [
-    {
-      id: 1,
-      batchNumber: 'GN-2024-001',
-      product: 'Granola Natural 500g',
-      quantity: 25,
-      unitCost: 320,
-      totalCost: 8000,
-      productionDate: '2024-09-28',
-      expirationDate: '2024-12-28',
-      status: 'active'
-    },
-    {
-      id: 2,
-      batchNumber: 'GC-2024-002',
-      product: 'Granola con Chocolate 500g',
-      quantity: 25,
-      unitCost: 400,
-      totalCost: 10000,
-      productionDate: '2024-09-27',
-      expirationDate: '2024-12-27',
-      status: 'active'
-    }
-  ];
-
-  const handleProductChange = (productName: string) => {
-    setSelectedProduct(productName);
-    const product = activeProducts.find(p => p.name === productName);
-    if (product) {
-      setUnitCost(product.avgCost);
-      // Auto-calculate expiration date (3 months from production)
-      const prodDate = new Date(productionDate);
-      const expDate = new Date(prodDate);
-      expDate.setMonth(expDate.getMonth() + 3);
-      setExpirationDate(expDate.toISOString().split('T')[0]);
+  const handleBatchSelect = async (e: any) => {
+    const batchId = e.target.value;
+    setSelectedBatchId(batchId);
+    
+    if (batchId) {
+      const batchDetails = await fetchBatch(parseInt(batchId));
+      setSelectedBatchDetails(batchDetails);
+    } else {
+      setSelectedBatchDetails(null);
     }
   };
 
-  const generateBatchNumber = (productName: string) => {
-    const productCode = productName.split(' ')[0].substring(0, 2).toUpperCase();
-    const year = new Date().getFullYear();
-    const sequence = String(Date.now()).slice(-3); // Simple sequence
-    return `${productCode}-${year}-${sequence}`;
+  const handleOpenPackagingModal = () => {
+    if (!selectedBatchDetails) {
+      alert('Por favor seleccione un lote');
+      return;
+    }
+    setPackagingItems([]);
+    setNewPackaging({
+      productId: selectedBatchDetails.productName ? 
+        (products.find(p => p.nombre === selectedBatchDetails.productName)?.id.toString() || '') : '',
+      tipoBolsa: '1kg',
+      cantidadBolsas: '',
+      almacen: 'Principal'
+    });
+    setOpenPackagingModal(true);
   };
 
-  const handleRegisterBatch = () => {
-    if (!selectedProduct || quantity <= 0 || unitCost <= 0) {
-      alert('Complete todos los campos requeridos');
+  const handleClosePackagingModal = () => {
+    setOpenPackagingModal(false);
+    setPackagingItems([]);
+  };
+
+  const handlePackagingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any) => {
+    const { name, value } = e.target;
+    setNewPackaging(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddPackagingItem = () => {
+    if (!newPackaging.productId || !newPackaging.cantidadBolsas || !newPackaging.almacen) {
+      alert('Todos los campos son requeridos');
       return;
     }
 
-    const batchNumber = generateBatchNumber(selectedProduct);
-    const totalCost = quantity * unitCost;
+    const product = products.find(p => p.id === parseInt(newPackaging.productId));
+    if (!product) {
+      alert('Producto no encontrado');
+      return;
+    }
 
-    // Here you would make an API call to:
-    // 1. Create the production batch record
-    // 2. Add the quantity to "Almacén Principal" inventory
-    // 3. Create inventory movement record
+    const newItem: PackagingItem = {
+      productId: product.id,
+      productName: product.nombre,
+      tipoBolsa: newPackaging.tipoBolsa,
+      cantidadBolsas: parseInt(newPackaging.cantidadBolsas),
+      almacen: newPackaging.almacen
+    };
 
-    alert(`¡Lote registrado exitosamente!
+    setPackagingItems(prev => [...prev, newItem]);
     
-Número de Lote: ${batchNumber}
-Producto: ${selectedProduct}
-Cantidad: ${quantity} kg
-Costo Total: $${totalCost.toLocaleString()}
-
-El inventario se agregó automáticamente al Almacén Principal.`);
-
-    // Clear form
-    setSelectedProduct('');
-    setQuantity(25);
-    setUnitCost(0);
-    setExpirationDate('');
-    setNotes('');
+    // Reset form
+    setNewPackaging({
+      productId: '',
+      tipoBolsa: '1kg',
+      cantidadBolsas: '',
+      almacen: 'Principal'
+    });
   };
 
-  const formatCurrency = (amount: number) => {
+  const handleRemovePackagingItem = (index: number) => {
+    setPackagingItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCompleteProduction = async () => {
+    if (packagingItems.length === 0) {
+      alert('Debe añadir al menos un tipo de empaque');
+      return;
+    }
+
+    if (!selectedBatchDetails) {
+      alert('Error: No se ha seleccionado un lote');
+      return;
+    }
+
+    const success = await completeBatch(selectedBatchDetails.id, packagingItems);
+    
+    if (success) {
+      handleClosePackagingModal();
+      setSelectedBatchId('');
+      setSelectedBatchDetails(null);
+      fetchBatches('planificado');
+    }
+  };
+
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(amount);
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }).format(value);
   };
 
-  const getStatusChip = (status: string) => {
-    const statusConfig = {
-      active: { label: 'Activo', color: 'success' as const },
-      expired: { label: 'Vencido', color: 'error' as const },
-      depleted: { label: 'Agotado', color: 'default' as const }
-    };
-    const config = statusConfig[status as keyof typeof statusConfig];
-    return <Chip label={config.label} color={config.color} size="small" />;
+  const getBagWeight = (tipoBolsa: string) => {
+    switch (tipoBolsa) {
+      case '1kg': return 1;
+      case '0.5kg': return 0.5;
+      case '100g': return 0.1;
+      default: return 0;
+    }
   };
+
+  const getTotalBagWeight = () => {
+    return packagingItems.reduce((sum, item) => {
+      return sum + (getBagWeight(item.tipoBolsa) * item.cantidadBolsas);
+    }, 0);
+  };
+
+  const plannedBatches = batches.filter(b => b.estado === 'planificado');
+
+  if (!isClient) {
+    return (
+      <Layout title="Producción">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <CircularProgress />
+        </Box>
+      </Layout>
+    );
+  }
 
   return (
     <>
       <Head>
         <title>Producción - Healthynola POS</title>
-        <meta name="description" content="Registro de producción y lotes del sistema Healthynola POS" />
+        <meta name="description" content="Gestión de producción de lotes" />
       </Head>
 
-      <Layout title="Registro de Producción">
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Grid container spacing={3}>
-          {/* Production Form */}
-          <Grid item xs={12} md={5}>
+      <Layout title="Producción">
+        <Grid container spacing={3}>
+          {/* Left Column - Batch Selection */}
+          <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ProductionIcon />
-                  Nuevo Lote de Producción
-                </Typography>
-
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    <strong>Flujo:</strong> Producción → Almacén Principal → Distribución (MMM/DVP) → Ventas
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <ProductionIcon sx={{ mr: 1, color: 'primary.main' }} />
+                  <Typography variant="h6">
+                    Producir Lote
                   </Typography>
-                </Alert>
-
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>Producto a Producir</InputLabel>
-                    <Select
-                      value={selectedProduct}
-                      label="Producto a Producir"
-                      onChange={(e) => handleProductChange(e.target.value)}
-                    >
-                      {activeProducts.map((product) => (
-                        <MenuItem key={product.id} value={product.name}>
-                          {product.name}
-                          <Chip 
-                            size="small" 
-                            label={`${formatCurrency(product.avgCost)}/kg`}
-                            sx={{ ml: 1 }}
-                          />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                    label="Cantidad (kg)"
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
-                    inputProps={{ min: 0.1, step: 0.1 }}
-                    fullWidth
-                    helperText="Lotes típicos de 25kg"
-                  />
-
-                  <TextField
-                    label="Costo por kg"
-                    type="number"
-                    value={unitCost}
-                    onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
-                    inputProps={{ min: 0, step: 10 }}
-                    fullWidth
-                    InputProps={{
-                      startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
-                    }}
-                  />
-
-                  <TextField
-                    label="Fecha de Producción"
-                    type="date"
-                    value={productionDate}
-                    onChange={(e) => setProductionDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                  />
-
-                  <TextField
-                    label="Fecha de Vencimiento"
-                    type="date"
-                    value={expirationDate}
-                    onChange={(e) => setExpirationDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    helperText="Típicamente 3 meses desde producción"
-                  />
-
-                  <TextField
-                    label="Notas (Opcional)"
-                    multiline
-                    rows={2}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    fullWidth
-                    placeholder="Observaciones sobre el lote..."
-                  />
-
-                  <Divider />
-
-                  <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      Resumen del Lote:
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Costo Total:</strong> {formatCurrency(quantity * unitCost)}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Destino:</strong> Almacén Principal
-                    </Typography>
-                    {selectedProduct && (
-                      <Typography variant="body2">
-                        <strong>Número de Lote:</strong> {generateBatchNumber(selectedProduct)}
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <Button
-                    variant="contained"
-                    size="large"
-                    startIcon={<AddIcon />}
-                    onClick={handleRegisterBatch}
-                    disabled={!selectedProduct || quantity <= 0 || unitCost <= 0}
-                    fullWidth
-                  >
-                    Registrar Lote de Producción
-                  </Button>
                 </Box>
+
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Seleccionar Lote</InputLabel>
+                  <Select
+                    value={selectedBatchId}
+                    label="Seleccionar Lote"
+                    onChange={handleBatchSelect}
+                  >
+                    <MenuItem value="">
+                      <em>Seleccione un lote...</em>
+                    </MenuItem>
+                    {plannedBatches.map((batch) => (
+                      <MenuItem key={batch.id} value={batch.id}>
+                        {batch.codigoLote} - {batch.recipeName}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {plannedBatches.length === 0 && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    No hay lotes planificados. Cree uno en el módulo de "Lotes".
+                  </Alert>
+                )}
+
+                {selectedBatchDetails && (
+                  <Box sx={{ mt: 3 }}>
+                    <Divider sx={{ mb: 2 }} />
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      Detalles del Lote:
+                    </Typography>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Código:
+                        </Typography>
+                        <Typography variant="body2">
+                          {selectedBatchDetails.codigoLote}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Receta:
+                        </Typography>
+                        <Typography variant="body2">
+                          {selectedBatchDetails.recipeName}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Producto:
+                        </Typography>
+                        <Typography variant="body2">
+                          {selectedBatchDetails.productName || '-'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Rendimiento:
+                        </Typography>
+                        <Typography variant="body2">
+                          {selectedBatchDetails.cantidadProducida} {selectedBatchDetails.unidad}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Typography variant="caption" color="text.secondary">
+                          Costo Total:
+                        </Typography>
+                        <Typography variant="h6" color="primary">
+                          {formatCurrency(selectedBatchDetails.costoTotalCalculado)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="primary"
+                      startIcon={<PackageIcon />}
+                      onClick={handleOpenPackagingModal}
+                      sx={{ mt: 3 }}
+                    >
+                      Empacar y Completar Lote
+                    </Button>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Recent Batches */}
-          <Grid item xs={12} md={7}>
+          {/* Right Column - Recent Batches */}
+          <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BatchIcon />
-                  Lotes Recientes
+                <Typography variant="h6" gutterBottom>
+                  Lotes Planificados
                 </Typography>
-
-                <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
+                <TableContainer sx={{ maxHeight: 400 }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Lote</TableCell>
-                        <TableCell>Producto</TableCell>
-                        <TableCell align="center">Cantidad</TableCell>
-                        <TableCell align="right">Costo Total</TableCell>
-                        <TableCell align="center">F. Producción</TableCell>
-                        <TableCell align="center">F. Vencimiento</TableCell>
-                        <TableCell align="center">Estado</TableCell>
+                        <TableCell><strong>Código</strong></TableCell>
+                        <TableCell><strong>Receta</strong></TableCell>
+                        <TableCell><strong>Estado</strong></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {recentBatches.map((batch) => (
-                        <TableRow key={batch.id}>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="medium">
-                              {batch.batchNumber}
+                      {plannedBatches.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} align="center">
+                            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                              No hay lotes planificados
                             </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {batch.product}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            {batch.quantity} kg
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatCurrency(batch.totalCost)}
-                          </TableCell>
-                          <TableCell align="center">
-                            {new Date(batch.productionDate).toLocaleDateString('es-CO')}
-                          </TableCell>
-                          <TableCell align="center">
-                            {new Date(batch.expirationDate).toLocaleDateString('es-CO')}
-                          </TableCell>
-                          <TableCell align="center">
-                            {getStatusChip(batch.status)}
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        plannedBatches.map((batch) => (
+                          <TableRow key={batch.id} hover>
+                            <TableCell>{batch.codigoLote}</TableCell>
+                            <TableCell>{batch.recipeName}</TableCell>
+                            <TableCell>
+                              <Chip label="Planificado" color="info" size="small" />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
-
-                <Alert severity="success" sx={{ mt: 2 }}>
-                  <Typography variant="body2">
-                    <strong>Recordatorio:</strong> Cuando Mariana o Dana necesiten inventario, 
-                    deben usar la función de &quot;Transferencias&quot; para mover stock del Almacén Principal 
-                    a sus almacenes personales (MMM/DVP).
-                  </Typography>
-                </Alert>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
-        )}
+
+        {/* Packaging Modal */}
+        <Dialog open={openPackagingModal} onClose={handleClosePackagingModal} maxWidth="md" fullWidth>
+          <DialogTitle>
+            Empacar Lote: {selectedBatchDetails?.codigoLote}
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="info" sx={{ mb: 3 }}>
+                Especifique cómo desea empacar este lote. Puede crear diferentes tipos de bolsas.
+              </Alert>
+
+              {/* Add Packaging Form */}
+              <Card sx={{ mb: 3, backgroundColor: '#f5f5f5' }}>
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Añadir Empaque:
+                  </Typography>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Producto</InputLabel>
+                        <Select
+                          name="productId"
+                          value={newPackaging.productId}
+                          label="Producto"
+                          onChange={handlePackagingChange}
+                        >
+                          {products.filter(p => p.activo).map((product) => (
+                            <MenuItem key={product.id} value={product.id}>
+                              {product.nombre}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={6} sm={2}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Tipo</InputLabel>
+                        <Select
+                          name="tipoBolsa"
+                          value={newPackaging.tipoBolsa}
+                          label="Tipo"
+                          onChange={handlePackagingChange}
+                        >
+                          <MenuItem value="1kg">1 kg</MenuItem>
+                          <MenuItem value="0.5kg">1/2 kg</MenuItem>
+                          <MenuItem value="100g">100 g</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={6} sm={2}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Cantidad"
+                        name="cantidadBolsas"
+                        type="number"
+                        value={newPackaging.cantidadBolsas}
+                        onChange={handlePackagingChange}
+                        inputProps={{ min: 1 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Almacén</InputLabel>
+                        <Select
+                          name="almacen"
+                          value={newPackaging.almacen}
+                          label="Almacén"
+                          onChange={handlePackagingChange}
+                        >
+                          <MenuItem value="Principal">Principal</MenuItem>
+                          <MenuItem value="MMM">MMM</MenuItem>
+                          <MenuItem value="DVP">DVP</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={1}>
+                      <IconButton
+                        color="primary"
+                        onClick={handleAddPackagingItem}
+                        sx={{ border: '2px solid', borderRadius: 1 }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+
+              {/* Current Packaging Items */}
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Empaques Añadidos:
+              </Typography>
+              {packagingItems.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                  No hay empaques añadidos. Use el formulario de arriba para añadir.
+                </Typography>
+              ) : (
+                <>
+                  <TableContainer component={Paper} sx={{ mb: 2 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                          <TableCell><strong>Producto</strong></TableCell>
+                          <TableCell><strong>Tipo Bolsa</strong></TableCell>
+                          <TableCell align="center"><strong>Cantidad</strong></TableCell>
+                          <TableCell><strong>Almacén</strong></TableCell>
+                          <TableCell align="center"><strong>Acción</strong></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {packagingItems.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{item.productName}</TableCell>
+                            <TableCell>{item.tipoBolsa}</TableCell>
+                            <TableCell align="center">{item.cantidadBolsas}</TableCell>
+                            <TableCell>{item.almacen}</TableCell>
+                            <TableCell align="center">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemovePackagingItem(index)}
+                              >
+                                <RemoveIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <Card sx={{ backgroundColor: '#e3f2fd' }}>
+                    <CardContent>
+                      <Typography variant="body2">
+                        <strong>Total de kg empacados:</strong> {getTotalBagWeight().toFixed(2)} kg
+                      </Typography>
+                      {selectedBatchDetails && (
+                        <Typography variant="body2" color={getTotalBagWeight() > selectedBatchDetails.cantidadProducida ? 'error' : 'text.secondary'}>
+                          <strong>Rendimiento del lote:</strong> {selectedBatchDetails.cantidadProducida} {selectedBatchDetails.unidad}
+                        </Typography>
+                      )}
+                      {selectedBatchDetails && getTotalBagWeight() > selectedBatchDetails.cantidadProducida && (
+                        <Alert severity="warning" sx={{ mt: 1 }}>
+                          El peso total empacado excede el rendimiento del lote
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClosePackagingModal} color="secondary">
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCompleteProduction} 
+              color="primary" 
+              variant="contained"
+              disabled={packagingItems.length === 0 || loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Completar Producción'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Layout>
     </>
   );
 };
 
-export default Production;
+export default ProductionPage;

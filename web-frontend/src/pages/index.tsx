@@ -12,7 +12,10 @@ import {
   Factory as ProductionIcon,
   SwapHoriz as TransferIcon,
   People as PeopleIcon,
-  Receipt as ExpensesIcon
+  Receipt as ExpensesIcon,
+  Category as RawMaterialsIcon,
+  MenuBook as RecipesIcon,
+  Assignment as BatchesIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/router';
 import MobileLanding from '@/components/MobileLanding';
@@ -60,8 +63,29 @@ const HomePage: NextPage = () => {
       color: '#1976d2'
     },
     {
+      title: 'Materia Prima',
+      description: 'Gestión de materia prima y costos',
+      icon: <RawMaterialsIcon fontSize="large" />,
+      path: '/raw-materials',
+      color: '#607d8b'
+    },
+    {
+      title: 'Recetas',
+      description: 'Recetas de producción con costos',
+      icon: <RecipesIcon fontSize="large" />,
+      path: '/recipes',
+      color: '#ff9800'
+    },
+    {
+      title: 'Lotes',
+      description: 'Gestión de lotes de producción',
+      icon: <BatchesIcon fontSize="large" />,
+      path: '/batches',
+      color: '#3f51b5'
+    },
+    {
       title: 'Producción',
-      description: 'Registro de lotes y producción',
+      description: 'Producir y empacar lotes',
       icon: <ProductionIcon fontSize="large" />,
       path: '/production',
       color: '#ff6f00'

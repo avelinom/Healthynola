@@ -23,6 +23,9 @@ const reportsRoutes = require('./routes/reports');
 const backupRoutes = require('./routes/backup');
 const transfersRoutes = require('./routes/transfers');
 const expensesRoutes = require('./routes/expenses');
+const rawMaterialsRoutes = require('./routes/rawMaterials');
+const recipesRoutes = require('./routes/recipes');
+const batchesRoutes = require('./routes/batches');
 
 const app = express();
 const server = createServer(app);
@@ -48,10 +51,10 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting (relaxed for development)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs (increased for development)
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use(limiter);
@@ -89,6 +92,9 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/transfers', transfersRoutes);
 app.use('/api/expenses', expensesRoutes);
+app.use('/api/raw-materials', rawMaterialsRoutes);
+app.use('/api/recipes', recipesRoutes);
+app.use('/api/batches', batchesRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
