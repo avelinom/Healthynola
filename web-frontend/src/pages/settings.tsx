@@ -131,7 +131,7 @@ const RolePermissionsSection = () => {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {getRoles().map((role) => {
-              const roleLabels = {
+              const roleLabels: Record<string, string> = {
                 admin: 'Administrador',
                 manager: 'Gerente', 
                 cashier: 'Cajero',
