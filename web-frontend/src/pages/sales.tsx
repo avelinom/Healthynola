@@ -251,7 +251,7 @@ const Sales: NextPage = () => {
           totalAmount: item.subtotal,
           discount: 0,
           finalAmount: item.subtotal,
-          paymentMethod: paymentMethod,
+          paymentMethod: paymentMethod as 'cash' | 'card' | 'transfer',
           salespersonId: 1,
           salespersonName: 'Usuario',
           warehouse: warehouse as 'Principal' | 'MMM' | 'DVP',
