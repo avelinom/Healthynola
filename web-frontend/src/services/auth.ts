@@ -36,7 +36,8 @@ export interface MeResponse {
  */
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
-    const response = await fetch('/api/auth/login', {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -69,7 +70,8 @@ export const logout = async (): Promise<void> => {
     const token = getToken();
     
     if (token) {
-      await fetch('/api/auth/logout', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -96,7 +98,8 @@ export const getMe = async (): Promise<MeResponse> => {
   }
 
   try {
-    const response = await fetch('/api/auth/me', {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+    const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
