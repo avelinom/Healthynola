@@ -1,0 +1,29 @@
+services:
+  # Backend API Service
+  - type: web
+    name: healthynola-backend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: cd web-backend && npm install && npm run migrate
+    startCommand: cd web-backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        fromDatabase:
+          name: healthynola-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://healthynola.vercel.app
+
+databases:
+  - name: healthynola-db
+    databaseName: healthynola
+    plan: free
+    region: oregon
+

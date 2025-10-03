@@ -3,7 +3,7 @@ const config = require('./config');
 
 const dbConfig = {
   client: 'postgresql',
-  connection: {
+  connection: process.env.DATABASE_URL || {
     host: config.database.host,
     port: config.database.port,
     user: config.database.user,
@@ -27,7 +27,8 @@ const dbConfig = {
   },
   seeds: {
     directory: './src/seeds'
-  }
+  },
+  ...(process.env.DATABASE_URL && { ssl: { rejectUnauthorized: false } })
 };
 
 const db = knex(dbConfig);

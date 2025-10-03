@@ -48,7 +48,7 @@ module.exports = {
 
   production: {
     client: 'postgresql',
-    connection: {
+    connection: process.env.DATABASE_URL || {
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
       user: process.env.DB_USER,
@@ -66,6 +66,7 @@ module.exports = {
     },
     seeds: {
       directory: './src/seeds'
-    }
+    },
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
   }
 };
