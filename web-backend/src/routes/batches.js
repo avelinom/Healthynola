@@ -378,8 +378,6 @@ router.post('/:id/complete', async (req, res) => {
           product_id: productId,
           almacen: almacen,
           cantidad: parseInt(cantidadBolsas),
-          stock_minimo: 10, // Default
-          stock_maximo: 100, // Default
           created_at: mexicoTime,
           updated_at: mexicoTime
         });

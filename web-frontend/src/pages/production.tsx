@@ -3,6 +3,8 @@ import Head from 'next/head';
 import Layout from '@/components/Layout';
 import { useBatches } from '@/hooks/useBatches';
 import { useProducts } from '@/hooks/useProducts';
+import { usePackagingTypes } from '@/hooks/usePackagingTypes';
+import { useWarehousesSimple as useWarehouses } from '@/hooks/useWarehousesSimple';
 import {
   Box,
   Button,
@@ -43,7 +45,7 @@ import { Batch } from '@/store/slices/batchesSlice';
 interface PackagingItem {
   productId: number;
   productName: string;
-  tipoBolsa: '1kg' | '0.5kg' | '100g';
+  tipoBolsa: string;
   cantidadBolsas: number;
   almacen: string;
 }
@@ -51,6 +53,8 @@ interface PackagingItem {
 const ProductionPage = () => {
   const { batches, loading, fetchBatches, fetchBatch, completeBatch } = useBatches();
   const { products, loadProducts } = useProducts();
+  const { activePackagingTypes, fetchPackagingTypes } = usePackagingTypes();
+  const { activeWarehouses } = useWarehouses();
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [selectedBatchDetails, setSelectedBatchDetails] = useState<Batch | null>(null);
   const [openPackagingModal, setOpenPackagingModal] = useState(false);
@@ -58,15 +62,16 @@ const ProductionPage = () => {
   const [packagingItems, setPackagingItems] = useState<PackagingItem[]>([]);
   const [newPackaging, setNewPackaging] = useState({
     productId: '',
-    tipoBolsa: '1kg' as '1kg' | '0.5kg' | '100g',
+    tipoBolsa: '',
     cantidadBolsas: '',
-    almacen: 'Principal'
+    almacen: activeWarehouses[0]?.codigo || ''
   });
 
   useEffect(() => {
     setIsClient(true);
     fetchBatches('planificado');
     loadProducts();
+    fetchPackagingTypes();
   }, []);
 
   const handleBatchSelect = async (e: any) => {
@@ -90,9 +95,9 @@ const ProductionPage = () => {
     setNewPackaging({
       productId: selectedBatchDetails.productName ? 
         (products.find(p => p.nombre === selectedBatchDetails.productName)?.id.toString() || '') : '',
-      tipoBolsa: '1kg',
+      tipoBolsa: '',
       cantidadBolsas: '',
-      almacen: 'Principal'
+      almacen: activeWarehouses[0]?.codigo || ''
     });
     setOpenPackagingModal(true);
   };
@@ -132,9 +137,9 @@ const ProductionPage = () => {
     // Reset form
     setNewPackaging({
       productId: '',
-      tipoBolsa: '1kg',
+      tipoBolsa: '',
       cantidadBolsas: '',
-      almacen: 'Principal'
+      almacen: activeWarehouses[0]?.codigo || ''
     });
   };
 
@@ -172,19 +177,43 @@ const ProductionPage = () => {
     }).format(value);
   };
 
-  const getBagWeight = (tipoBolsa: string) => {
-    switch (tipoBolsa) {
-      case '1kg': return 1;
-      case '0.5kg': return 0.5;
-      case '100g': return 0.1;
-      default: return 0;
+  const getPackagingWeight = (tipoBolsa: string) => {
+    const packagingType = activePackagingTypes.find(pt => pt.nombre === tipoBolsa);
+    if (!packagingType) return 0;
+    
+    // Convert to kg or liters based on unit
+    const cantidad = parseFloat(packagingType.cantidad);
+    const unidad = packagingType.unidad_medida.toLowerCase();
+    
+    if (unidad === 'ml') {
+      return cantidad / 1000; // Convert mL to liters
+    } else if (unidad === 'g') {
+      return cantidad / 1000; // Convert g to kg
+    } else if (unidad === 'l' || unidad === 'kg') {
+      return cantidad;
     }
+    
+    return parseFloat(packagingType.peso_kg) || 0;
   };
 
-  const getTotalBagWeight = () => {
+  const getTotalPackaged = () => {
     return packagingItems.reduce((sum, item) => {
-      return sum + (getBagWeight(item.tipoBolsa) * item.cantidadBolsas);
+      return sum + (getPackagingWeight(item.tipoBolsa) * item.cantidadBolsas);
     }, 0);
+  };
+
+  const getUnitLabel = () => {
+    if (!selectedBatchDetails) return 'kg';
+    const unidad = selectedBatchDetails.unidad?.toLowerCase();
+    if (unidad === 'litros' || unidad === 'l') return 'litros';
+    return 'kg';
+  };
+
+  const getSurplus = () => {
+    if (!selectedBatchDetails) return 0;
+    const totalPackaged = getTotalPackaged();
+    const batchYield = selectedBatchDetails.cantidadProducida;
+    return batchYield - totalPackaged;
   };
 
   const plannedBatches = batches.filter(b => b.estado === 'planificado');
@@ -239,7 +268,7 @@ const ProductionPage = () => {
 
                 {plannedBatches.length === 0 && (
                   <Alert severity="info" sx={{ mt: 2 }}>
-                    No hay lotes planificados. Cree uno en el módulo de "Lotes".
+                    No hay lotes planificados. Cree uno en el módulo de &quot;Lotes&quot;.
                   </Alert>
                 )}
 
@@ -396,9 +425,11 @@ const ProductionPage = () => {
                           label="Tipo"
                           onChange={handlePackagingChange}
                         >
-                          <MenuItem value="1kg">1 kg</MenuItem>
-                          <MenuItem value="0.5kg">1/2 kg</MenuItem>
-                          <MenuItem value="100g">100 g</MenuItem>
+                          {activePackagingTypes.map((pt) => (
+                            <MenuItem key={pt.id} value={pt.nombre}>
+                              {pt.etiqueta}
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -423,9 +454,11 @@ const ProductionPage = () => {
                           label="Almacén"
                           onChange={handlePackagingChange}
                         >
-                          <MenuItem value="Principal">Principal</MenuItem>
-                          <MenuItem value="MMM">MMM</MenuItem>
-                          <MenuItem value="DVP">DVP</MenuItem>
+                          {activeWarehouses.map((wh) => (
+                            <MenuItem key={wh.id} value={wh.codigo}>
+                              {wh.nombre}
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -457,7 +490,7 @@ const ProductionPage = () => {
                       <TableHead>
                         <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                           <TableCell><strong>Producto</strong></TableCell>
-                          <TableCell><strong>Tipo Bolsa</strong></TableCell>
+                          <TableCell><strong>Tipo de Empaque</strong></TableCell>
                           <TableCell align="center"><strong>Cantidad</strong></TableCell>
                           <TableCell><strong>Almacén</strong></TableCell>
                           <TableCell align="center"><strong>Acción</strong></TableCell>
@@ -488,16 +521,27 @@ const ProductionPage = () => {
                   <Card sx={{ backgroundColor: '#e3f2fd' }}>
                     <CardContent>
                       <Typography variant="body2">
-                        <strong>Total de kg empacados:</strong> {getTotalBagWeight().toFixed(2)} kg
+                        <strong>Total de {getUnitLabel()} empacados:</strong> {getTotalPackaged().toFixed(3)} {getUnitLabel()}
                       </Typography>
                       {selectedBatchDetails && (
-                        <Typography variant="body2" color={getTotalBagWeight() > selectedBatchDetails.cantidadProducida ? 'error' : 'text.secondary'}>
-                          <strong>Rendimiento del lote:</strong> {selectedBatchDetails.cantidadProducida} {selectedBatchDetails.unidad}
-                        </Typography>
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            <strong>Rendimiento del lote:</strong> {selectedBatchDetails.cantidadProducida} {selectedBatchDetails.unidad}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            color={getSurplus() < 0 ? 'error' : getSurplus() > 0 ? 'success.main' : 'text.secondary'}
+                            sx={{ mt: 1 }}
+                          >
+                            <strong>
+                              {getSurplus() > 0 ? 'Sobrante:' : getSurplus() < 0 ? 'Faltante:' : 'Match exacto:'}
+                            </strong> {Math.abs(getSurplus()).toFixed(3)} {getUnitLabel()}
+                          </Typography>
+                        </>
                       )}
-                      {selectedBatchDetails && getTotalBagWeight() > selectedBatchDetails.cantidadProducida && (
+                      {selectedBatchDetails && getSurplus() < 0 && (
                         <Alert severity="warning" sx={{ mt: 1 }}>
-                          El peso total empacado excede el rendimiento del lote
+                          La cantidad empacada excede el rendimiento del lote
                         </Alert>
                       )}
                     </CardContent>

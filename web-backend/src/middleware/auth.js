@@ -39,7 +39,10 @@ const protect = async (req, res, next) => {
 // Grant access to specific roles
 const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    // Flatten the roles array in case it's nested
+    const flatRoles = roles.flat();
+    console.log('Authorize check:', { userRole: req.user.role, allowedRoles: flatRoles });
+    if (!flatRoles.includes(req.user.role)) {
       logger.warn(`User ${req.user.id} denied access to ${req.path} - insufficient role`);
       return res.status(403).json({
         success: false,

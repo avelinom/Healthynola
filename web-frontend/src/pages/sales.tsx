@@ -5,6 +5,8 @@ import { useDispatch } from 'react-redux';
 import { addSale } from '@/store/slices/salesSlice';
 import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
+import { usePackagingTypes } from '@/hooks/usePackagingTypes';
+import { useWarehousesSimple as useWarehouses } from '@/hooks/useWarehousesSimple';
 import {
   Grid,
   Card,
@@ -47,6 +49,8 @@ interface SaleItem {
 
 const Sales: NextPage = () => {
   const dispatch = useDispatch();
+  const { activePackagingTypes, fetchPackagingTypes } = usePackagingTypes();
+  const { activeWarehouses } = useWarehouses();
   const [products, setProducts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +58,7 @@ const Sales: NextPage = () => {
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [tipoEmpaque, setTipoEmpaque] = useState('');
   const [customer, setCustomer] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [warehouse, setWarehouse] = useState('');
@@ -76,6 +81,9 @@ const Sales: NextPage = () => {
         setProducts(productsData.data || []);
         setCustomers(customersData.data || []);
         setIsClient(true);
+        
+        // Load packaging types
+        fetchPackagingTypes();
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -92,8 +100,12 @@ const Sales: NextPage = () => {
   const activeProducts = products.filter(product => product.activo);
   const activeCustomers = customers.filter(customer => customer.active);
 
-  const warehouses = ['Principal', 'MMM', 'DVP'];
-  const paymentMethods = ['Efectivo', 'Transferencia', 'Regalo', 'Consignación'];
+  const paymentMethods = [
+    { label: 'Efectivo', value: 'Efectivo' },
+    { label: 'Transferencia', value: 'Transferencia' },
+    { label: 'Regalo', value: 'Regalo' },
+    { label: 'Consignación', value: 'Consignación' }
+  ];
 
   const addItem = () => {
     if (!selectedProduct || quantity <= 0) return;
@@ -213,6 +225,7 @@ const Sales: NextPage = () => {
             paymentMethod: paymentMethod,
             salesperson: 'Usuario', // TODO: Get from auth
             warehouse: warehouse,
+            tipoEmpaque: tipoEmpaque || null, // Packaging type
             notes: notes || null
           })
         });
@@ -226,23 +239,23 @@ const Sales: NextPage = () => {
 
         // 3.3. Save to Redux for immediate UI update
         dispatch(addSale({
-          id: saleData.data.id,
           customerName: customer,
           customerId: selectedCustomer?.id || 0,
-          items: [{
+          products: [{
+            productId: product.id,
             productName: item.product,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            subtotal: item.subtotal
+            total: item.subtotal
           }],
-          subtotal: item.subtotal,
+          totalAmount: item.subtotal,
           discount: 0,
           finalAmount: item.subtotal,
-          paymentMethod,
-          warehouse,
-          notes,
-          timestamp: saleData.data.createdAt || new Date().toISOString(),
-          createdBy: 'Usuario'
+          paymentMethod: paymentMethod,
+          salespersonId: 1,
+          salespersonName: 'Usuario',
+          warehouse: warehouse as 'Principal' | 'MMM' | 'DVP',
+          notes
         }));
       }
       
@@ -316,6 +329,24 @@ const Sales: NextPage = () => {
                     fullWidth
                   />
 
+                  <FormControl fullWidth>
+                    <InputLabel>Tipo de Empaque (Opcional)</InputLabel>
+                    <Select
+                      value={tipoEmpaque}
+                      label="Tipo de Empaque (Opcional)"
+                      onChange={(e) => setTipoEmpaque(e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Sin especificar</em>
+                      </MenuItem>
+                      {activePackagingTypes.map((pt) => (
+                        <MenuItem key={pt.id} value={pt.nombre}>
+                          {pt.etiqueta} ({pt.tipo_contenedor})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
@@ -366,8 +397,8 @@ const Sales: NextPage = () => {
                       onChange={(e) => setPaymentMethod(e.target.value)}
                     >
                       {paymentMethods.map((method) => (
-                        <MenuItem key={method} value={method}>
-                          {method}
+                        <MenuItem key={method.value} value={method.value}>
+                          {method.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -380,9 +411,9 @@ const Sales: NextPage = () => {
                       label="Almacén"
                       onChange={(e) => setWarehouse(e.target.value)}
                     >
-                      {warehouses.map((wh) => (
-                        <MenuItem key={wh} value={wh}>
-                          {wh}
+                      {activeWarehouses.map((wh) => (
+                        <MenuItem key={wh.id} value={wh.codigo}>
+                          {wh.nombre}
                         </MenuItem>
                       ))}
                     </Select>

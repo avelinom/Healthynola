@@ -15,15 +15,23 @@ import {
   Receipt as ExpensesIcon,
   Category as RawMaterialsIcon,
   MenuBook as RecipesIcon,
-  Assignment as BatchesIcon
+  Assignment as BatchesIcon,
+  Scale as PackagingIcon,
+  Warehouse as WarehouseIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/router';
 import MobileLanding from '@/components/MobileLanding';
+// import { useAuth } from '@/hooks/useAuth';
+// import { usePermissions } from '@/hooks/usePermissions';
 
 const HomePage: NextPage = () => {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  
+  // Auth and permissions hooks - temporarily disabled
+  // const { isAuthenticated, user } = useAuth();
+  // const { hasAccessSync } = usePermissions();
 
   // Detect mobile device
   useEffect(() => {
@@ -60,100 +68,144 @@ const HomePage: NextPage = () => {
       description: 'Resumen general del sistema',
       icon: <DashboardIcon fontSize="large" />,
       path: '/dashboard',
-      color: '#1976d2'
+      color: '#1976d2',
+      moduleId: 'dashboard'
     },
     {
       title: 'Materia Prima',
       description: 'Gestión de materia prima y costos',
       icon: <RawMaterialsIcon fontSize="large" />,
       path: '/raw-materials',
-      color: '#607d8b'
+      color: '#607d8b',
+      moduleId: 'raw_materials'
     },
     {
       title: 'Recetas',
       description: 'Recetas de producción con costos',
       icon: <RecipesIcon fontSize="large" />,
       path: '/recipes',
-      color: '#ff9800'
+      color: '#ff9800',
+      moduleId: 'recipes'
     },
     {
       title: 'Lotes',
       description: 'Gestión de lotes de producción',
       icon: <BatchesIcon fontSize="large" />,
       path: '/batches',
-      color: '#3f51b5'
+      color: '#3f51b5',
+      moduleId: 'batches'
     },
     {
       title: 'Producción',
       description: 'Producir y empacar lotes',
       icon: <ProductionIcon fontSize="large" />,
       path: '/production',
-      color: '#ff6f00'
+      color: '#ff6f00',
+      moduleId: 'production'
     },
     {
       title: 'Ventas',
       description: 'Gestión de ventas y transacciones',
       icon: <SalesIcon fontSize="large" />,
       path: '/sales',
-      color: '#2e7d32'
+      color: '#2e7d32',
+      moduleId: 'sales'
     },
     {
       title: 'Productos',
       description: 'Catálogo y gestión de productos',
       icon: <InventoryIcon fontSize="large" />,
       path: '/products',
-      color: '#795548'
+      color: '#795548',
+      moduleId: 'products'
     },
     {
       title: 'Inventario',
       description: 'Control de stock y productos',
       icon: <InventoryIcon fontSize="large" />,
       path: '/inventory',
-      color: '#ed6c02'
+      color: '#ed6c02',
+      moduleId: 'inventory'
     },
     {
       title: 'Transferencias',
       description: 'Transferir stock entre almacenes',
       icon: <TransferIcon fontSize="large" />,
       path: '/transfers',
-      color: '#795548'
+      color: '#795548',
+      moduleId: 'transfers'
     },
     {
       title: 'Clientes',
       description: 'Base de datos de clientes',
       icon: <CustomersIcon fontSize="large" />,
       path: '/customers',
-      color: '#9c27b0'
+      color: '#9c27b0',
+      moduleId: 'customers'
     },
     {
       title: 'Gastos',
       description: 'Registro y control de gastos',
       icon: <ExpensesIcon fontSize="large" />,
       path: '/expenses',
-      color: '#e91e63'
+      color: '#e91e63',
+      moduleId: 'expenses'
     },
     {
       title: 'Reportes',
       description: 'Análisis y estadísticas',
       icon: <ReportsIcon fontSize="large" />,
       path: '/reports',
-      color: '#d32f2f'
+      color: '#d32f2f',
+      moduleId: 'reports'
     },
     {
       title: 'Usuarios',
       description: 'Gestión de usuarios y roles',
       icon: <PeopleIcon fontSize="large" />,
       path: '/users',
-      color: '#9c27b0'
+      color: '#9c27b0',
+      moduleId: 'users'
+    },
+    {
+      title: 'Categorías',
+      description: 'Gestión de categorías de productos',
+      icon: <RawMaterialsIcon fontSize="large" />,
+      path: '/categories',
+      color: '#ff5722',
+      moduleId: 'categories'
+    },
+    {
+      title: 'Tipos de Empaque',
+      description: 'Gestión de tipos y tamaños de empaque',
+      icon: <PackagingIcon fontSize="large" />,
+      path: '/packaging-types',
+      color: '#00897b',
+      moduleId: 'packaging_types'
+    },
+    {
+      title: 'Almacenes',
+      description: 'Gestión de almacenes y ubicaciones',
+      icon: <WarehouseIcon fontSize="large" />,
+      path: '/warehouses',
+      color: '#795548',
+      moduleId: 'warehouses'
     },
     {
       title: 'Configuración',
       description: 'Ajustes del sistema',
       icon: <SettingsIcon fontSize="large" />,
       path: '/settings',
-      color: '#616161'
+      color: '#616161',
+      moduleId: 'settings'
     }
   ];
+
+  // Filter menu items based on user permissions - temporarily disabled
+  const filteredMenuItems = menuItems; // Show all items for now
+
+  console.log('📋 Total menu items:', menuItems.length);
+  console.log('✅ Filtered menu items:', filteredMenuItems.length);
 
   return (
     <>
@@ -197,7 +249,7 @@ const HomePage: NextPage = () => {
 
           {/* Menu Grid */}
           <Grid container spacing={3}>
-            {menuItems.map((item, index) => (
+            {filteredMenuItems.map((item, index) => (
               <Grid item xs={12} sm={6} md={4} key={index}>
                 <Card 
                   sx={{ 

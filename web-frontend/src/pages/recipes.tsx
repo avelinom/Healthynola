@@ -311,7 +311,7 @@ const RecipesPage = () => {
                   <TableRow>
                     <TableCell colSpan={5} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                        No hay recetas registradas. Haga clic en "Nueva Receta" para comenzar.
+                        No hay recetas registradas. Haga clic en &quot;Nueva Receta&quot; para comenzar.
                       </Typography>
                     </TableCell>
                   </TableRow>

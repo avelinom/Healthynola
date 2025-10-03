@@ -51,3 +51,5 @@ web-frontend/node_modules/
 web-backend/node_modules/
 web-backend/uploads/receipts/*
 !web-backend/uploads/receipts/.gitkeep
+# Backups
+web-backend/src/backups/*.sql

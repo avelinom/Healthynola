@@ -13,9 +13,11 @@ import {
   Button
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  Factory as ProductionIcon,
   ShoppingCart as SalesIcon,
+  People as CustomersIcon,
+  SwapHoriz as TransferIcon,
+  Receipt as ExpensesIcon,
+  Assessment as ReportsIcon,
   AccountCircle as AccountIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -23,25 +25,39 @@ import Link from 'next/link';
 const MobileLanding: NextPage = () => {
   const mobileModules = [
     {
-      title: 'Dashboard',
-      description: 'Panel de control y estadísticas',
-      icon: <DashboardIcon sx={{ fontSize: 40, color: '#2e7d32' }} />,
-      href: '/dashboard',
+      title: 'Ventas',
+      description: 'Registro de ventas y transacciones',
+      icon: <SalesIcon sx={{ fontSize: 40, color: '#2e7d32' }} />,
+      href: '/sales',
       color: '#e8f5e8'
     },
     {
-      title: 'Producción',
-      description: 'Registro de producción y lotes',
-      icon: <ProductionIcon sx={{ fontSize: 40, color: '#1976d2' }} />,
-      href: '/production',
-      color: '#e3f2fd'
+      title: 'Clientes',
+      description: 'Gestión de clientes',
+      icon: <CustomersIcon sx={{ fontSize: 40, color: '#9c27b0' }} />,
+      href: '/customers',
+      color: '#f3e5f5'
     },
     {
-      title: 'Ventas',
-      description: 'Registro de ventas y transacciones',
-      icon: <SalesIcon sx={{ fontSize: 40, color: '#f57c00' }} />,
-      href: '/sales',
-      color: '#fff3e0'
+      title: 'Transferencias',
+      description: 'Transferir stock entre almacenes',
+      icon: <TransferIcon sx={{ fontSize: 40, color: '#795548' }} />,
+      href: '/transfers',
+      color: '#efebe9'
+    },
+    {
+      title: 'Gastos',
+      description: 'Registro y control de gastos',
+      icon: <ExpensesIcon sx={{ fontSize: 40, color: '#e91e63' }} />,
+      href: '/expenses',
+      color: '#fce4ec'
+    },
+    {
+      title: 'Reportes',
+      description: 'Generación de reportes y análisis',
+      icon: <ReportsIcon sx={{ fontSize: 40, color: '#00838f' }} />,
+      href: '/reports',
+      color: '#e0f7fa'
     }
   ];
 

@@ -7,14 +7,21 @@ import {
   Button, 
   Container,
   Breadcrumbs,
-  Link as MuiLink
+  Link as MuiLink,
+  Menu,
+  MenuItem,
+  IconButton,
+  Chip
 } from '@mui/material';
 import { 
   Home as HomeIcon,
-  AccountCircle as AccountIcon
+  AccountCircle as AccountIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,6 +35,22 @@ const Layout: React.FC<LayoutProps> = ({
   showBreadcrumbs = true 
 }) => {
   const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuth();
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = async () => {
+    handleMenuClose();
+    await logout();
+    router.push('/login');
+  };
   
   const getBreadcrumbs = () => {
     const pathSegments = router.asPath.split('/').filter(segment => segment);
@@ -57,13 +80,53 @@ const Layout: React.FC<LayoutProps> = ({
           
           <Box sx={{ flexGrow: 1 }} />
           
-          <Button
-            color="inherit"
-            startIcon={<AccountIcon />}
-            onClick={() => router.push('/login')}
-          >
-            Iniciar Sesión
-          </Button>
+          {isAuthenticated && user ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={user.role}
+                size="small"
+                color="secondary"
+                variant="outlined"
+                sx={{ color: 'white', borderColor: 'white' }}
+              />
+              <Typography variant="body2" sx={{ color: 'white' }}>
+                {user.name}
+              </Typography>
+              <IconButton
+                color="inherit"
+                onClick={handleMenuOpen}
+                size="small"
+              >
+                <AccountIcon />
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+              >
+                <MenuItem onClick={handleLogout}>
+                  <LogoutIcon sx={{ mr: 1 }} />
+                  Cerrar Sesión
+                </MenuItem>
+              </Menu>
+            </Box>
+          ) : (
+            <Button
+              color="inherit"
+              startIcon={<AccountIcon />}
+              onClick={() => router.push('/login')}
+            >
+              Iniciar Sesión
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
 

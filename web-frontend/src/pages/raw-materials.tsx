@@ -202,7 +202,7 @@ const RawMaterialsPage = () => {
                   <TableRow>
                     <TableCell colSpan={8} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                        No hay materia prima registrada. Haga clic en "Nueva Materia Prima" para comenzar.
+                        No hay materia prima registrada. Haga clic en &quot;Nueva Materia Prima&quot; para comenzar.
                       </Typography>
                     </TableCell>
                   </TableRow>

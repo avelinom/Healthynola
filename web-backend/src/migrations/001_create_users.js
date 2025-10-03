@@ -4,7 +4,7 @@ exports.up = function(knex) {
     table.string('name').notNullable();
     table.string('email').notNullable().unique();
     table.string('password').notNullable();
-    table.enum('role', ['admin', 'manager', 'cashier']).notNullable().defaultTo('cashier');
+    table.enum('role', ['admin', 'manager', 'cashier', 'salesperson']).notNullable().defaultTo('cashier');
     table.boolean('active').notNullable().defaultTo(true);
     table.timestamp('last_login');
     table.timestamps(true, true);

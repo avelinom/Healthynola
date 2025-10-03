@@ -17,6 +17,9 @@ import expensesSlice from './slices/expensesSlice';
 import rawMaterialsSlice from './slices/rawMaterialsSlice';
 import recipesSlice from './slices/recipesSlice';
 import batchesSlice from './slices/batchesSlice';
+import categoriesSlice from './slices/categoriesSlice';
+import packagingTypesSlice from './slices/packagingTypesSlice';
+import warehousesSlice from './slices/warehousesSlice';
 
 // Create a safe storage that works in both server and client
 const createNoopStorage = () => {
@@ -49,12 +52,15 @@ const rootReducer = combineReducers({
   rawMaterials: rawMaterialsSlice,
   recipes: recipesSlice,
   batches: batchesSlice,
+  categories: categoriesSlice,
+  packagingTypes: packagingTypesSlice,
+  warehouses: warehousesSlice,
 });
 
 const persistConfig = {
   key: 'root',
   storage: safeStorage,
-  whitelist: ['auth', 'products', 'customers', 'users', 'activity', 'inventory', 'transfers', 'sales', 'expenses', 'rawMaterials', 'recipes', 'batches'], // Persist state
+  whitelist: ['auth', 'products', 'customers', 'users', 'activity', 'inventory', 'transfers', 'sales', 'expenses', 'rawMaterials', 'recipes', 'batches', 'categories', 'packagingTypes', 'warehouses'], // Persist state
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

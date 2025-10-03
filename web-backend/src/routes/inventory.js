@@ -10,7 +10,8 @@ const transformInventoryItem = (dbItem) => {
     productName: dbItem.product_name,
     warehouse: dbItem.warehouse || dbItem.almacen,
     currentStock: parseFloat(dbItem.quantity || dbItem.cantidad),
-    minStock: parseFloat(dbItem.min_stock || dbItem.stock_minimo),
+    minStock: parseFloat(dbItem.min_stock || dbItem.stock_minimo || 0),
+    maxStock: parseFloat(dbItem.max_stock || dbItem.stock_maximo || 100),
     notes: dbItem.notes || '',
     createdAt: dbItem.created_at,
     updatedAt: dbItem.updated_at
@@ -20,18 +21,28 @@ const transformInventoryItem = (dbItem) => {
 // GET /api/inventory - Obtener todo el inventario
 router.get('/', async (req, res) => {
   try {
-    const inventory = await db('inventory')
+    const { warehouse } = req.query;
+    
+    let query = db('inventory')
       .join('products', 'inventory.product_id', 'products.id')
       .select(
         'inventory.id',
         'inventory.product_id',
         'inventory.almacen',
         'inventory.cantidad',
+        'inventory.stock_minimo',
+        'inventory.stock_maximo',
         'products.nombre as product_name',
-        'products.stock_minimo as min_stock',
         'inventory.created_at',
         'inventory.updated_at'
-      )
+      );
+    
+    // Filter by warehouse if provided
+    if (warehouse) {
+      query = query.where('inventory.almacen', warehouse);
+    }
+    
+    const inventory = await query
       .orderBy('inventory.almacen', 'asc')
       .orderBy('products.nombre', 'asc');
 
@@ -267,11 +278,11 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { currentStock, minStock, notes } = req.body;
+    const { currentStock, minStock, maxStock, notes } = req.body;
 
     const existingItem = await db('inventory')
       .join('products', 'inventory.product_id', 'products.id')
-      .select('inventory.*', 'products.nombre as product_name', 'products.stock_minimo as min_stock')
+      .select('inventory.*', 'products.nombre as product_name')
       .where('inventory.id', id)
       .first();
 
@@ -285,13 +296,26 @@ router.put('/:id', async (req, res) => {
     const oldQuantity = parseFloat(existingItem.cantidad);
     const newQuantity = parseFloat(currentStock);
 
+    // Preparar datos para actualizar
+    const updateData = {
+      cantidad: newQuantity,
+      updated_at: new Date()
+    };
+    
+    // Actualizar stock_minimo si se proporciona
+    if (minStock !== undefined) {
+      updateData.stock_minimo = parseFloat(minStock);
+    }
+    
+    // Actualizar stock_maximo si se proporciona
+    if (maxStock !== undefined) {
+      updateData.stock_maximo = parseFloat(maxStock);
+    }
+
     // Actualizar el item
     await db('inventory')
       .where('id', id)
-      .update({
-        cantidad: newQuantity,
-        updated_at: new Date()
-      });
+      .update(updateData);
 
     // Registrar movimiento de inventario si cambió la cantidad
     if (oldQuantity !== newQuantity) {
@@ -309,13 +333,27 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    // Get updated item with all fields
+    const updatedItem = await db('inventory')
+      .join('products', 'inventory.product_id', 'products.id')
+      .select(
+        'inventory.id',
+        'inventory.product_id',
+        'inventory.almacen',
+        'inventory.cantidad',
+        'inventory.stock_minimo',
+        'inventory.stock_maximo',
+        'products.nombre as product_name',
+        'inventory.created_at',
+        'inventory.updated_at'
+      )
+      .where('inventory.id', id)
+      .first();
+
     res.json({
       success: true,
       message: 'Item de inventario actualizado exitosamente',
-      data: transformInventoryItem({
-        ...existingItem,
-        cantidad: newQuantity
-      })
+      data: transformInventoryItem(updatedItem)
     });
   } catch (error) {
     console.error('Error updating inventory item:', error);

@@ -26,6 +26,10 @@ const expensesRoutes = require('./routes/expenses');
 const rawMaterialsRoutes = require('./routes/rawMaterials');
 const recipesRoutes = require('./routes/recipes');
 const batchesRoutes = require('./routes/batches');
+const permissionsRoutes = require('./routes/permissions');
+const categoriesRoutes = require('./routes/categories');
+const packagingTypesRoutes = require('./routes/packagingTypes');
+const warehousesRoutes = require('./routes/warehouses');
 
 const app = express();
 const server = createServer(app);
@@ -95,6 +99,10 @@ app.use('/api/expenses', expensesRoutes);
 app.use('/api/raw-materials', rawMaterialsRoutes);
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/batches', batchesRoutes);
+app.use('/api/permissions', permissionsRoutes);
+app.use('/api/categories', categoriesRoutes);
+app.use('/api/packaging-types', packagingTypesRoutes);
+app.use('/api/warehouses', warehousesRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

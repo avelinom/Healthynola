@@ -52,7 +52,7 @@ const Customers: NextPage = () => {
     const loadCustomers = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:3001/api/customers');
+        const response = await fetch('/api/customers');
         const data = await response.json();
         console.log('[Customers Page] Loaded customers:', data.data);
         setCustomers(data.data || []);
@@ -142,7 +142,7 @@ const Customers: NextPage = () => {
           notes: customerForm.notes.trim() || null
         };
 
-        const response = await fetch(`http://localhost:3001/api/customers/${editingCustomer.id}`, {
+        const response = await fetch(`/api/customers/${editingCustomer.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedCustomer)
@@ -171,7 +171,7 @@ const Customers: NextPage = () => {
           active: true
         };
 
-        const response = await fetch('http://localhost:3001/api/customers', {
+        const response = await fetch('/api/customers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newCustomer)
@@ -201,7 +201,7 @@ const Customers: NextPage = () => {
   const handleDeleteCustomer = async (customerId: number, customerName: string) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar al cliente "${customerName}"? Esta acción no se puede deshacer.`)) {
       try {
-        const response = await fetch(`http://localhost:3001/api/customers/${customerId}`, {
+        const response = await fetch(`/api/customers/${customerId}`, {
           method: 'DELETE'
         });
         

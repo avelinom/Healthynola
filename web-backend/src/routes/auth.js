@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const config = require('../config/config');
 const logger = require('../utils/logger');
 const { protect } = require('../middleware/auth');
+const db = require('../config/database');
 
 const router = express.Router();
 
@@ -66,19 +67,70 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // TODO: Find user in database
-    // TODO: Check password
-    // TODO: Generate JWT token
+    // Find user in database
+    const user = await db('users')
+      .where({ email })
+      .first();
 
-    // Placeholder response
+    if (!user) {
+      logger.warn(`Login failed: user not found for email ${email}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciales inválidas'
+      });
+    }
+
+    // Check if user is active
+    if (!user.active) {
+      logger.warn(`Login failed: user ${email} is inactive`);
+      return res.status(401).json({
+        success: false,
+        error: 'Usuario inactivo. Contacta al administrador.'
+      });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      logger.warn(`Login failed: incorrect password for email ${email}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Credenciales inválidas'
+      });
+    }
+
+    // Update last_login
+    await db('users')
+      .where({ id: user.id })
+      .update({ last_login: new Date() });
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role 
+      },
+      config.jwt.secret,
+      { expiresIn: config.jwt.expiresIn }
+    );
+
+    logger.info(`Login successful for user: ${email}`);
+
     res.json({
       success: true,
-      message: 'User login endpoint - not implemented yet',
-      data: { email }
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
     });
-
-    logger.info(`Login attempted for email: ${email}`);
   } catch (error) {
+    logger.error('Login error:', error);
     next(error);
   }
 });
@@ -88,13 +140,38 @@ router.post('/login', [
 // @access  Private
 router.get('/me', protect, async (req, res, next) => {
   try {
-    // TODO: Get user from database
-    
+    // Get fresh user data from database
+    const user = await db('users')
+      .where({ id: req.user.id })
+      .select('id', 'name', 'email', 'role', 'active', 'last_login')
+      .first();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+
+    if (!user.active) {
+      return res.status(403).json({
+        success: false,
+        error: 'Usuario inactivo'
+      });
+    }
+
     res.json({
       success: true,
-      data: req.user
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        lastLogin: user.last_login
+      }
     });
   } catch (error) {
+    logger.error('Get user error:', error);
     next(error);
   }
 });

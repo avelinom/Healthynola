@@ -31,6 +31,7 @@ const transformSale = (dbSale) => {
     paymentMethod: dbSale.metodo_pago,
     salesperson: dbSale.vendedor,
     warehouse: dbSale.almacen,
+    tipoEmpaque: dbSale.tipo_empaque, // Packaging type (e.g., '1kg', 'LK-355')
     notes: dbSale.notas,
     cancelled: dbSale.cancelada,
     cancellationDate: dbSale.fecha_cancelacion,
@@ -99,6 +100,13 @@ router.get('/report/pdf', async (req, res) => {
 
     const sales = await query.orderBy('sales.created_at', 'desc');
 
+    // Get packaging types for proper classification
+    const packagingTypes = await db('packaging_types').where('activo', true);
+    const packagingMap = {};
+    packagingTypes.forEach(pt => {
+      packagingMap[pt.nombre] = pt;
+    });
+
     // Calculate report data
     const reportData = {
       summary: {
@@ -113,7 +121,13 @@ router.get('/report/pdf', async (req, res) => {
       bankDeposits: 0,
       consignments: [],
       gifts: [],
-      salesByBagType: {},
+      salesByBagType: {}, // Category-based (legacy)
+      salesByPackagingType: {
+        bolsa: { quantity: 0, total: 0, items: [] },
+        lata: { quantity: 0, total: 0, items: [] },
+        botella: { quantity: 0, total: 0, items: [] },
+        otro: { quantity: 0, total: 0, items: [] }
+      },
       salesByWarehouse: {},
       salesByPaymentMethod: {
         Efectivo: 0,
@@ -129,6 +143,7 @@ router.get('/report/pdf', async (req, res) => {
       const paymentMethod = sale.metodo_pago;
       const productCategory = sale.product_category;
       const warehouse = sale.almacen;
+      const tipoEmpaque = sale.tipo_empaque;
 
       // Update totals
       reportData.summary.totalSales += total;
@@ -189,6 +204,22 @@ router.get('/report/pdf', async (req, res) => {
           name: sale.product_name,
           total: total,
           quantity: parseFloat(sale.cantidad)
+        });
+      }
+
+      // NEW: Sales by actual packaging type (bolsas, latas, botellas)
+      if (tipoEmpaque && packagingMap[tipoEmpaque]) {
+        const packagingType = packagingMap[tipoEmpaque];
+        const containerType = packagingType.tipo_contenedor.toLowerCase();
+        const targetCategory = ['bolsa', 'lata', 'botella'].includes(containerType) ? containerType : 'otro';
+        
+        reportData.salesByPackagingType[targetCategory].quantity += parseFloat(sale.cantidad);
+        reportData.salesByPackagingType[targetCategory].total += total;
+        reportData.salesByPackagingType[targetCategory].items.push({
+          productName: sale.product_name,
+          packageType: packagingType.etiqueta,
+          quantity: parseFloat(sale.cantidad),
+          total: total
         });
       }
 
@@ -263,11 +294,34 @@ router.get('/report/pdf', async (req, res) => {
     doc.moveDown(0.5);
     doc.fontSize(10);
     Object.entries(reportData.salesByBagType).forEach(([category, data]) => {
-      doc.text(`${category}: $${data.total.toFixed(2)} (${data.quantity} unidades)`);
+      doc.text(`${category}: ${data.total.toFixed(2)} (${data.quantity} unidades)`);
       data.products.forEach(product => {
-        doc.text(`  - ${product.name}: $${product.total.toFixed(2)} (${product.quantity} unidades)`);
+        doc.text(`  - ${product.name}: ${product.total.toFixed(2)} (${product.quantity} unidades)`);
       });
       doc.moveDown(0.5);
+    });
+
+    // NEW: Sales by Packaging Type
+    doc.moveDown(0.5);
+    doc.fontSize(14).text('Ventas por Tipo de Empaque', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10);
+    
+    const packagingLabels = {
+      bolsa: 'Bolsas',
+      lata: 'Latas',
+      botella: 'Botellas',
+      otro: 'Otros'
+    };
+    
+    Object.entries(reportData.salesByPackagingType).forEach(([type, data]) => {
+      if (data.quantity > 0) {
+        doc.text(`${packagingLabels[type]}: ${data.total.toFixed(2)} (${data.quantity} unidades)`);
+        data.items.forEach(item => {
+          doc.text(`  - ${item.productName} (${item.packageType}): ${item.total.toFixed(2)} (${item.quantity} unidades)`);
+        });
+        doc.moveDown(0.5);
+      }
     });
 
     // General Summary
@@ -332,6 +386,13 @@ router.get('/report', async (req, res) => {
 
     const sales = await query.orderBy('sales.created_at', 'desc');
 
+    // Get packaging types for proper classification
+    const packagingTypes = await db('packaging_types').where('activo', true);
+    const packagingMap = {};
+    packagingTypes.forEach(pt => {
+      packagingMap[pt.nombre] = pt;
+    });
+
     // Calculate report data
     const reportData = {
       summary: {
@@ -346,7 +407,13 @@ router.get('/report', async (req, res) => {
       bankDeposits: 0,
       consignments: [],
       gifts: [],
-      salesByBagType: {},
+      salesByBagType: {}, // Category-based (legacy)
+      salesByPackagingType: {
+        bolsa: { quantity: 0, total: 0, items: [] },
+        lata: { quantity: 0, total: 0, items: [] },
+        botella: { quantity: 0, total: 0, items: [] },
+        otro: { quantity: 0, total: 0, items: [] }
+      },
       salesByWarehouse: {},
       salesByPaymentMethod: {
         Efectivo: 0,
@@ -362,6 +429,7 @@ router.get('/report', async (req, res) => {
       const paymentMethod = sale.metodo_pago;
       const productCategory = sale.product_category;
       const warehouse = sale.almacen;
+      const tipoEmpaque = sale.tipo_empaque;
 
       // Update totals
       reportData.summary.totalSales += total;
@@ -427,6 +495,22 @@ router.get('/report', async (req, res) => {
           name: sale.product_name,
           total: total,
           quantity: parseFloat(sale.cantidad)
+        });
+      }
+
+      // NEW: Sales by actual packaging type (bolsas, latas, botellas)
+      if (tipoEmpaque && packagingMap[tipoEmpaque]) {
+        const packagingType = packagingMap[tipoEmpaque];
+        const containerType = packagingType.tipo_contenedor.toLowerCase();
+        const targetCategory = ['bolsa', 'lata', 'botella'].includes(containerType) ? containerType : 'otro';
+        
+        reportData.salesByPackagingType[targetCategory].quantity += parseFloat(sale.cantidad);
+        reportData.salesByPackagingType[targetCategory].total += total;
+        reportData.salesByPackagingType[targetCategory].items.push({
+          productName: sale.product_name,
+          packageType: packagingType.etiqueta,
+          quantity: parseFloat(sale.cantidad),
+          total: total
         });
       }
 
@@ -527,6 +611,7 @@ router.post('/', async (req, res) => {
       paymentMethod,
       salesperson,
       warehouse,
+      tipoEmpaque,
       notes
     } = req.body;
 
@@ -551,6 +636,7 @@ router.post('/', async (req, res) => {
       metodo_pago: paymentMethod,
       vendedor: salesperson,
       almacen: warehouse,
+      tipo_empaque: tipoEmpaque || null, // Optional packaging type
       notas: notes || null,
       cancelada: false,
       created_at: mexicoTime,

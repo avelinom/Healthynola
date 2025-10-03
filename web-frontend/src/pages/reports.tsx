@@ -99,75 +99,85 @@ const Reports: NextPage = () => {
   });
 
   // Load quick stats
-  useEffect(() => {
-    const loadStats = async () => {
-      if (statsLoaded) return; // Prevent multiple calls
+  const loadStats = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setIsClient(true);
       
-      try {
-        setLoading(true);
-        setIsClient(true);
+      // Load data from API
+      const [salesRes, customersRes, inventoryRes] = await Promise.all([
+        fetch('/api/sales'),
+        fetch('/api/customers'),
+        fetch('/api/inventory')
+      ]);
+      
+      const salesData = await salesRes.json();
+      const customersData = await customersRes.json();
+      const inventoryData = await inventoryRes.json();
+      
+      if (salesData.success && customersData.success && inventoryData.success) {
+        const sales = salesData.data || [];
+        const customers = customersData.data || [];
+        const inventoryItems = inventoryData.data || [];
         
-        // Load data from API
-        const [salesRes, customersRes, inventoryRes] = await Promise.all([
-          fetch('/api/sales'),
-          fetch('/api/customers'),
-          fetch('/api/inventory')
-        ]);
+        // Calculate today's sales (using Mexico Central time)
+        const today = new Date();
+        // Get today's date in UTC (sales are stored in UTC which corresponds to Mexico Central GMT-6)
+        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
         
-        const salesData = await salesRes.json();
-        const customersData = await customersRes.json();
-        const inventoryData = await inventoryRes.json();
+        const todaySales = sales.filter((sale: any) => {
+          const saleDate = new Date(sale.createdAt || sale.created_at || sale.timestamp);
+          // Compare dates directly in UTC (backend stores in Mexico time but as UTC)
+          const saleDateStr = saleDate.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+          return saleDateStr === todayStr;
+        });
         
-        if (salesData.success && customersData.success && inventoryData.success) {
-          const sales = salesData.data || [];
-          const customers = customersData.data || [];
-          const inventoryItems = inventoryData.data || [];
-          
-          // Calculate today's sales (using Mexico Central time)
-          const today = new Date();
-          // Get today's date in Mexico Central timezone (GMT-6)
-          const todayInMexico = new Date(today.getTime() - (6 * 60 * 60 * 1000)); // Subtract 6 hours
-          const todayStr = todayInMexico.toISOString().split('T')[0]; // YYYY-MM-DD format
-          
-          const todaySales = sales.filter((sale: any) => {
-            const saleDate = new Date(sale.createdAt || sale.created_at || sale.timestamp);
-            // Convert sale date to Mexico Central time (GMT-6)
-            const saleInMexico = new Date(saleDate.getTime() - (6 * 60 * 60 * 1000)); // Subtract 6 hours
-            const saleDateStr = saleInMexico.toISOString().split('T')[0]; // YYYY-MM-DD format
-            return saleDateStr === todayStr;
-          });
-          
-          const todaySalesAmount = todaySales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total || sale.finalAmount || 0), 0);
-          const todayTransactionsCount = todaySales.length;
-          
-          // Calculate low stock count
-          const lowStockCount = inventoryItems.filter((item: any) => 
-            parseFloat(item.currentStock || 0) < parseFloat(item.minStock || 0)
-          ).length;
-          
-          // Calculate active customers count
-          const activeCustomersCount = customers.filter((c: any) => c.activo !== false).length;
-          
-          setStats({
-            todaySales: todaySalesAmount,
-            todayTransactions: todayTransactionsCount,
-            lowStockCount: lowStockCount,
-            activeCustomersCount: activeCustomersCount
-          });
-          
-          setStatsLoaded(true);
-        }
-      } catch (error) {
-        console.error('Error loading stats:', error);
-      } finally {
-        setLoading(false);
+        const todaySalesAmount = todaySales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total || sale.finalAmount || 0), 0);
+        const todayTransactionsCount = todaySales.length;
+        
+        // Calculate low stock count
+        const lowStockCount = inventoryItems.filter((item: any) => 
+          parseFloat(item.currentStock || 0) < parseFloat(item.minStock || 0)
+        ).length;
+        
+        // Calculate active customers count
+        const activeCustomersCount = customers.filter((c: any) => c.activo !== false).length;
+        
+        setStats({
+          todaySales: todaySalesAmount,
+          todayTransactions: todayTransactionsCount,
+          lowStockCount: lowStockCount,
+          activeCustomersCount: activeCustomersCount
+        });
+        
+        setStatsLoaded(true);
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      loadStats();
+    }
+  }, [loadStats]);
+
+  // Auto-refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadStats();
       }
     };
 
-    if (typeof window !== 'undefined' && !statsLoaded) {
-      loadStats();
-    }
-  }, [statsLoaded]);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadStats]);
 
   // Handle form submission - Download PDF
   const handleSubmit = (e: React.FormEvent) => {

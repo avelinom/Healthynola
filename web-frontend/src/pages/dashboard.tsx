@@ -52,69 +52,81 @@ const Dashboard: NextPage = () => {
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
 
   // Load data directly from API
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [productsRes, customersRes, inventoryRes, salesRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/customers'),
-          fetch('/api/inventory'),
-          fetch('/api/sales')
-        ]);
+  const loadData = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const [productsRes, customersRes, inventoryRes, salesRes] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/api/customers'),
+        fetch('/api/inventory'),
+        fetch('/api/sales')
+      ]);
+      
+      const productsData = await productsRes.json();
+      const customersData = await customersRes.json();
+      const inventoryData = await inventoryRes.json();
+      const salesData = await salesRes.json();
+      
+      setProducts(productsData.data || []);
+      setCustomers(customersData.data || []);
+      setInventoryItems(inventoryData.data || []);
+      
+      // Calculate stats with API data
+      if (salesData.success) {
+        const apiSales = salesData.data || [];
         
-        const productsData = await productsRes.json();
-        const customersData = await customersRes.json();
-        const inventoryData = await inventoryRes.json();
-        const salesData = await salesRes.json();
-        
-        setProducts(productsData.data || []);
-        setCustomers(customersData.data || []);
-        setInventoryItems(inventoryData.data || []);
-        
-        // Calculate stats with API data
-        if (salesData.success) {
-          const apiSales = salesData.data || [];
+          // Calculate today's sales (using Mexico Central time)
+          const today = new Date();
+          // Get today's date in UTC (sales are stored in UTC which corresponds to Mexico Central GMT-6)
+          const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
           
-            // Calculate today's sales (using Mexico Central time)
-            const today = new Date();
-            // Get today's date in Mexico Central timezone (GMT-6)
-            const todayInMexico = new Date(today.getTime() - (6 * 60 * 60 * 1000));
-            const todayStr = todayInMexico.toISOString().split('T')[0]; // YYYY-MM-DD format
-            
-            const todaySales = apiSales.filter((sale: any) => {
-              const saleDate = new Date(sale.createdAt || sale.created_at || sale.timestamp);
-              // Convert sale date to Mexico Central time (GMT-6)
-              const saleInMexico = new Date(saleDate.getTime() - (6 * 60 * 60 * 1000));
-              const saleDateStr = saleInMexico.toISOString().split('T')[0]; // YYYY-MM-DD format
-              return saleDateStr === todayStr;
-            });
-          
-          const todaySalesAmount = todaySales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total || sale.finalAmount || 0), 0);
-          const lowStockCount = (inventoryData.data || []).filter((item: any) => 
-            parseFloat(item.currentStock || 0) < parseFloat(item.minStock || 0)
-          ).length;
-          
-          setStats({
-            todaySales: todaySalesAmount,
-            totalProducts: (productsData.data || []).filter((p: any) => p.activo).length,
-            lowStockItems: lowStockCount,
-            totalCustomers: (customersData.data || []).filter((c: any) => c.activo !== false).length
+          const todaySales = apiSales.filter((sale: any) => {
+            const saleDate = new Date(sale.createdAt || sale.created_at || sale.timestamp);
+            // Compare dates directly in UTC (backend stores in Mexico time but as UTC)
+            const saleDateStr = saleDate.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+            return saleDateStr === todayStr;
           });
-        }
         
-        setIsClient(true);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
+        const todaySalesAmount = todaySales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total || sale.finalAmount || 0), 0);
+        const lowStockCount = (inventoryData.data || []).filter((item: any) => 
+          parseFloat(item.currentStock || 0) < parseFloat(item.minStock || 0)
+        ).length;
+        
+        setStats({
+          todaySales: todaySalesAmount,
+          totalProducts: (productsData.data || []).filter((p: any) => p.activo).length,
+          lowStockItems: lowStockCount,
+          totalCustomers: (customersData.data || []).filter((c: any) => c.activo !== false).length
+        });
       }
-    };
+      
+      setIsClient(true);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       loadData();
     }
-  }, []);
+  }, [loadData]);
+
+  // Auto-refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadData]);
 
   // Generate recent activity from API data (client-side only)
   useEffect(() => {
@@ -134,7 +146,7 @@ const Dashboard: NextPage = () => {
           action: 'Producto agregado',
           details: `${product.nombre}`,
           timestamp: product.created_at,
-          userId: 1
+          userId: '1'
         });
       });
 
@@ -150,7 +162,7 @@ const Dashboard: NextPage = () => {
           action: 'Cliente registrado',
           details: `${customer.name}`,
           timestamp: customer.created_at,
-          userId: 1
+          userId: '1'
         });
       });
 

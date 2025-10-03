@@ -3,6 +3,7 @@ import { NextPage } from 'next';
 import Head from 'next/head';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
+import { useWarehousesSimple } from '@/hooks/useWarehousesSimple';
 import {
   addInventoryItem,
   updateInventoryItem,
@@ -67,8 +68,8 @@ const Inventory: NextPage = () => {
       try {
         setLoading(true);
         const [inventoryRes, productsRes] = await Promise.all([
-          fetch('http://localhost:3001/api/inventory'),
-          fetch('http://localhost:3001/api/products')
+          fetch('/api/inventory'),
+          fetch('/api/products')
         ]);
         
         const inventoryData = await inventoryRes.json();
@@ -82,7 +83,7 @@ const Inventory: NextPage = () => {
           warehouse: item.warehouse,
           currentStock: parseFloat(item.currentStock || 0),
           minStock: parseFloat(item.minStock || 0),
-          maxStock: 1000, // Default max stock
+          maxStock: parseFloat(item.maxStock || 100),
           notes: item.notes || '',
           updatedAt: item.updatedAt
         }));
@@ -117,7 +118,8 @@ const Inventory: NextPage = () => {
     notes: ''
   });
 
-  const warehouses = ['Principal', 'DVP', 'MMM'];
+  // Use dynamic warehouses from API
+  const { activeWarehouses } = useWarehousesSimple();
 
   const handleOpenDialog = (item?: InventoryItem) => {
     if (item) {
@@ -198,12 +200,13 @@ const Inventory: NextPage = () => {
     try {
       if (editingItem) {
         // Actualizar item existente
-        const response = await fetch(`http://localhost:3001/api/inventory/${editingItem.id}`, {
+        const response = await fetch(`/api/inventory/${editingItem.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             currentStock: inventoryForm.currentStock,
             minStock: inventoryForm.minStock,
+            maxStock: inventoryForm.maxStock,
             notes: inventoryForm.notes
           })
         });
@@ -226,7 +229,7 @@ const Inventory: NextPage = () => {
           warehouse: item.warehouse,
           currentStock: parseFloat(item.currentStock || 0),
           minStock: parseFloat(item.minStock || 0),
-          maxStock: 1000,
+          maxStock: parseFloat(item.maxStock || 100),
           notes: item.notes || '',
           updatedAt: item.updatedAt
         }));
@@ -235,7 +238,7 @@ const Inventory: NextPage = () => {
         alert('Item actualizado exitosamente!');
       } else {
         // Crear nuevo item
-        const response = await fetch('http://localhost:3001/api/inventory', {
+        const response = await fetch('/api/inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -265,7 +268,7 @@ const Inventory: NextPage = () => {
           warehouse: item.warehouse,
           currentStock: parseFloat(item.currentStock || 0),
           minStock: parseFloat(item.minStock || 0),
-          maxStock: 1000,
+          maxStock: parseFloat(item.maxStock || 100),
           notes: item.notes || '',
           updatedAt: item.updatedAt
         }));
@@ -285,7 +288,7 @@ const Inventory: NextPage = () => {
     if (!updatingItem) return;
 
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${updatingItem.id}`, {
+      const response = await fetch(`/api/inventory/${updatingItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -303,7 +306,7 @@ const Inventory: NextPage = () => {
       }
 
       // Recargar datos
-      const inventoryRes = await fetch('http://localhost:3001/api/inventory');
+      const inventoryRes = await fetch('/api/inventory');
       const inventoryData = await inventoryRes.json();
       
       const mappedInventory = (inventoryData.data || []).map((item: any) => ({
@@ -313,7 +316,7 @@ const Inventory: NextPage = () => {
         warehouse: item.warehouse,
         currentStock: parseFloat(item.currentStock || 0),
         minStock: parseFloat(item.minStock || 0),
-        maxStock: 1000,
+        maxStock: parseFloat(item.maxStock || 100),
         notes: item.notes || '',
         updatedAt: item.updatedAt
       }));
@@ -330,7 +333,7 @@ const Inventory: NextPage = () => {
   const handleDeleteItem = async (itemId: number, productName: string, warehouse: string) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar el item "${productName}" del almacén "${warehouse}"? Esta acción no se puede deshacer.`)) {
       try {
-        const response = await fetch(`http://localhost:3001/api/inventory/${itemId}`, {
+        const response = await fetch(`/api/inventory/${itemId}`, {
           method: 'DELETE'
         });
 
@@ -352,7 +355,7 @@ const Inventory: NextPage = () => {
           warehouse: item.warehouse,
           currentStock: parseFloat(item.currentStock || 0),
           minStock: parseFloat(item.minStock || 0),
-          maxStock: 1000,
+          maxStock: parseFloat(item.maxStock || 100),
           notes: item.notes || '',
           updatedAt: item.updatedAt
         }));
@@ -560,9 +563,9 @@ const Inventory: NextPage = () => {
                     label="Almacén"
                     onChange={(e) => handleInputChange('warehouse', e.target.value)}
                   >
-                    {warehouses.map((warehouse) => (
-                      <MenuItem key={warehouse} value={warehouse}>
-                        {warehouse}
+                    {activeWarehouses.map((warehouse) => (
+                      <MenuItem key={warehouse.codigo} value={warehouse.codigo}>
+                        {warehouse.nombre}
                       </MenuItem>
                     ))}
                   </Select>

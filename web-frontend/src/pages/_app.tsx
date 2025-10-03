@@ -6,10 +6,16 @@ import { CacheProvider, EmotionCache } from '@emotion/react';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 import { store } from '@/store';
+import { PersistGate } from 'redux-persist/integration/react';
+import { persistStore } from 'redux-persist';
 import theme from '@/styles/theme';
 import createEmotionCache from '@/utils/createEmotionCache';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import '@/styles/globals.css';
 
 // Client-side cache, shared for the whole session of the user in the browser.
@@ -26,8 +32,41 @@ const queryClient = new QueryClient({
   },
 });
 
+// Create persistor for Redux Persist
+const persistor = persistStore(store);
+
 interface MyAppProps extends AppProps {
   emotionCache?: EmotionCache;
+}
+
+// Component to handle route protection
+function AppContent({ Component, pageProps }: { Component: any; pageProps: any }) {
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Routes that don't require authentication
+  const publicRoutes = ['/login'];
+  const isPublicRoute = publicRoutes.includes(router.pathname);
+
+  // Show loading during SSR
+  if (!isClient) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Cargando...</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <>
+      <Component {...pageProps} />
+    </>
+  );
 }
 
 export default function MyApp(props: MyAppProps) {
@@ -36,38 +75,40 @@ export default function MyApp(props: MyAppProps) {
   return (
     <CacheProvider value={emotionCache}>
       <Provider store={store}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider theme={theme}>
-            {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
-            <CssBaseline />
-            <Component {...pageProps} />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                },
-                success: {
-                  duration: 3000,
-                  iconTheme: {
-                    primary: '#4caf50',
-                    secondary: '#fff',
+        <PersistGate loading={null} persistor={persistor}>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider theme={theme}>
+              {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
+              <CssBaseline />
+              <AppContent Component={Component} pageProps={pageProps} />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
                   },
-                },
-                error: {
-                  duration: 5000,
-                  iconTheme: {
-                    primary: '#f44336',
-                    secondary: '#fff',
+                  success: {
+                    duration: 3000,
+                    iconTheme: {
+                      primary: '#4caf50',
+                      secondary: '#fff',
+                    },
                   },
-                },
-              }}
-            />
-            <ReactQueryDevtools initialIsOpen={false} />
-          </ThemeProvider>
-        </QueryClientProvider>
+                  error: {
+                    duration: 5000,
+                    iconTheme: {
+                      primary: '#f44336',
+                      secondary: '#fff',
+                    },
+                  },
+                }}
+              />
+              <ReactQueryDevtools initialIsOpen={false} />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </PersistGate>
       </Provider>
     </CacheProvider>
   );

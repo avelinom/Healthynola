@@ -27,9 +27,173 @@ import {
   Notifications as NotificationsIcon,
   Security as SecurityIcon,
   Backup as BackupIcon,
-  Update as UpdateIcon
+  Update as UpdateIcon,
+  AdminPanelSettings as AdminIcon,
+  ToggleOn as ToggleOnIcon,
+  ToggleOff as ToggleOffIcon
 } from '@mui/icons-material';
 import Layout from '@/components/Layout';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuth } from '@/hooks/useAuth';
+
+// Role Permissions Component
+const RolePermissionsSection = () => {
+  const { user } = useAuth();
+  const { 
+    permissions, 
+    modules, 
+    loading, 
+    error, 
+    updatePermissions, 
+    getRolePermissions, 
+    getRoles 
+  } = usePermissions();
+  
+  const [selectedRole, setSelectedRole] = useState('admin');
+  const [rolePermissions, setRolePermissions] = useState<{ [module: string]: boolean }>({});
+  const [saving, setSaving] = useState(false);
+
+  // Only show for admin users
+  if (user?.role !== 'admin') {
+    return null;
+  }
+
+  // Update role permissions when selected role changes
+  useEffect(() => {
+    const perms = getRolePermissions(selectedRole);
+    setRolePermissions(perms);
+  }, [selectedRole, permissions]);
+
+  const handlePermissionChange = (module: string, hasAccess: boolean) => {
+    console.log('handlePermissionChange - module:', module, 'hasAccess:', hasAccess);
+    setRolePermissions(prev => ({
+      ...prev,
+      [module]: hasAccess
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      console.log('handleSave - selectedRole:', selectedRole);
+      console.log('handleSave - rolePermissions:', rolePermissions);
+      setSaving(true);
+      await updatePermissions(selectedRole, rolePermissions);
+      // Show success message (you can add a snackbar here)
+      console.log('Permissions saved successfully');
+    } catch (error) {
+      console.error('Error saving permissions:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+            <CircularProgress />
+            <Typography sx={{ ml: 2 }}>Cargando permisos...</Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card sx={{ mt: 3 }}>
+        <CardContent>
+          <Alert severity="error">{error}</Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card sx={{ mt: 3 }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <AdminIcon sx={{ mr: 1, color: 'primary.main' }} />
+          <Typography variant="h6" component="h2">
+            Configuración de Acceso por Roles
+          </Typography>
+        </Box>
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Configure qué módulos puede acceder cada rol de usuario.
+        </Typography>
+
+        {/* Role Selection */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Seleccionar Rol
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {getRoles().map((role) => {
+              const roleLabels = {
+                admin: 'Administrador',
+                manager: 'Gerente', 
+                cashier: 'Cajero',
+                salesperson: 'Vendedor'
+              };
+              return (
+                <Chip
+                  key={role}
+                  label={roleLabels[role] || role}
+                  onClick={() => setSelectedRole(role)}
+                  color={selectedRole === role ? 'primary' : 'default'}
+                  variant={selectedRole === role ? 'filled' : 'outlined'}
+                />
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* Permissions Grid */}
+        <Grid container spacing={2}>
+          {modules.map((module) => (
+            <Grid item xs={12} sm={6} md={4} key={module.id}>
+              <Card variant="outlined" sx={{ height: '100%' }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        {module.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                        {module.description}
+                      </Typography>
+                    </Box>
+                    <Switch
+                      checked={rolePermissions[module.id] || false}
+                      onChange={(e) => handlePermissionChange(module.id, e.target.checked)}
+                      color="primary"
+                      size="small"
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Save Button */}
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={20} /> : <AdminIcon />}
+            sx={{ minWidth: 200 }}
+          >
+            {saving ? 'Guardando...' : 'Guardar Permisos'}
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Settings: NextPage = () => {
   interface Backup {
@@ -399,6 +563,9 @@ const Settings: NextPage = () => {
             Guardar Configuración
           </Button>
         </Box>
+
+        {/* Role Permissions Section */}
+        <RolePermissionsSection />
 
         {/* Snackbar for notifications */}
         <Snackbar

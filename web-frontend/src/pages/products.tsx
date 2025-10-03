@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 import { Product } from '@/store/slices/productsSlice';
 import { addActivity } from '@/store/slices/activitySlice';
 import {
@@ -41,12 +42,14 @@ import {
   Close as CloseIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon
+  Visibility as ViewIcon,
+  Category as CategoryIcon
 } from '@mui/icons-material';
 import Layout from '@/components/Layout';
 
 const Products: NextPage = () => {
   const { products, loading, error, createProduct, updateProduct, deleteProduct, loadProducts } = useProducts();
+  const { activeCategories } = useCategories();
   
   const [openDialog, setOpenDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,7 +77,8 @@ const Products: NextPage = () => {
   });
 
 
-  const categorias = ['Granola', 'Snacks', 'Cereales', 'Frutos Secos', 'Otros'];
+  // Use dynamic categories from API
+  const categorias = activeCategories.map(cat => cat.nombre);
   const unidadesMedida = ['g', 'kg', 'ml', 'l', 'unidad'];
 
   const handleOpenDialog = (product?: Product) => {
@@ -241,6 +245,13 @@ const Products: NextPage = () => {
                     ),
                   }}
                 />
+                <Button 
+                  variant="outlined" 
+                  startIcon={<CategoryIcon />}
+                  onClick={() => window.open('/categories', '_blank')}
+                >
+                  Gestionar Categorías
+                </Button>
                 <Button 
                   variant="contained" 
                   startIcon={<AddIcon />}

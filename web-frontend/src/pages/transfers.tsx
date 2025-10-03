@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
 import { useSelector, useDispatch } from 'react-redux';
@@ -43,9 +43,9 @@ import Layout from '@/components/Layout';
 const Transfers: NextPage = () => {
   const dispatch = useDispatch();
   const transfers = useSelector((state: RootState) => state.transfers.transfers);
-  const inventoryItems = useSelector((state: RootState) => state.inventory.items);
-  const products = useSelector((state: RootState) => state.products.products);
 
+  const [products, setProducts] = useState<any[]>([]); // Load from API instead of Redux
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]); // Load from API instead of Redux
   const [selectedProduct, setSelectedProduct] = useState('');
   const [quantity, setQuantity] = useState(0);
   const [fromWarehouse, setFromWarehouse] = useState('');
@@ -54,89 +54,63 @@ const Transfers: NextPage = () => {
   const [isClient, setIsClient] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // State for inventory summary - initialized empty to avoid hydration mismatch
-  const [inventorySummary, setInventorySummary] = useState({
-    Principal: 0,
-    DVP: 0,
-    MMM: 0
-  });
-
-  // State for detailed inventory breakdown by warehouse
-  const [inventoryBreakdown, setInventoryBreakdown] = useState<{
-    [warehouse: string]: Array<{
-      productName: string;
-      quantity: number;
-    }>
-  }>({
-    Principal: [],
-    DVP: [],
-    MMM: []
-  });
+  // inventorySummary and inventoryBreakdown are now calculated with useMemo
 
   // State for transfers from API
   const [apiTransfers, setApiTransfers] = useState<Transfer[]>([]);
 
-  const warehouses = ['Principal', 'DVP', 'MMM'];
+  // State for warehouses - loaded once from API
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [warehousesLoaded, setWarehousesLoaded] = useState(false);
+  
+  // Compute active warehouses only when warehouses change
+  const activeWarehouses = warehouses.filter(w => w.activo);
 
-  // Load data from API
+  // Load warehouses once on mount
+  useEffect(() => {
+    const loadWarehouses = async () => {
+      try {
+        const response = await fetch('/api/warehouses');
+        const data = await response.json();
+        
+        if (data.success) {
+          setWarehouses(data.data || []);
+          setWarehousesLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error loading warehouses:', error);
+      }
+    };
+
+    if (!warehousesLoaded) {
+      loadWarehouses();
+    }
+  }, [warehousesLoaded]);
+
+  // Load data from API - simplified to fix loading state
   useEffect(() => {
     const loadData = async () => {
       try {
-        setLoading(true);
-        const [inventoryRes, transfersRes] = await Promise.all([
+        const [inventoryRes, transfersRes, productsRes] = await Promise.all([
           fetch('/api/inventory'),
-          fetch('/api/transfers')
+          fetch('/api/transfers'),
+          fetch('/api/products')
         ]);
         
         const inventoryData = await inventoryRes.json();
         const transfersData = await transfersRes.json();
+        const productsData = await productsRes.json();
         
         if (inventoryData.success) {
-          const inventoryItems = inventoryData.data || [];
-          
-          // Calculate summary totals
-          const summary = {
-            Principal: inventoryItems
-              .filter((item: any) => item.warehouse === 'Principal')
-              .reduce((sum: number, item: any) => sum + parseFloat(item.currentStock || 0), 0),
-            DVP: inventoryItems
-              .filter((item: any) => item.warehouse === 'DVP')
-              .reduce((sum: number, item: any) => sum + parseFloat(item.currentStock || 0), 0),
-            MMM: inventoryItems
-              .filter((item: any) => item.warehouse === 'MMM')
-              .reduce((sum: number, item: any) => sum + parseFloat(item.currentStock || 0), 0)
-          };
-          setInventorySummary(summary);
-
-          // Calculate detailed breakdown by warehouse
-          const breakdown = {
-            Principal: inventoryItems
-              .filter((item: any) => item.warehouse === 'Principal')
-              .map((item: any) => ({
-                productName: item.productName,
-                quantity: parseFloat(item.currentStock || 0)
-              }))
-              .sort((a, b) => b.quantity - a.quantity), // Sort by quantity descending
-            DVP: inventoryItems
-              .filter((item: any) => item.warehouse === 'DVP')
-              .map((item: any) => ({
-                productName: item.productName,
-                quantity: parseFloat(item.currentStock || 0)
-              }))
-              .sort((a, b) => b.quantity - a.quantity),
-            MMM: inventoryItems
-              .filter((item: any) => item.warehouse === 'MMM')
-              .map((item: any) => ({
-                productName: item.productName,
-                quantity: parseFloat(item.currentStock || 0)
-              }))
-              .sort((a, b) => b.quantity - a.quantity)
-          };
-          setInventoryBreakdown(breakdown);
+          setInventoryItems(inventoryData.data || []);
         }
         
         if (transfersData.success) {
           setApiTransfers(transfersData.data || []);
+        }
+        
+        if (productsData.success) {
+          setProducts(productsData.data || []);
         }
         
         setIsClient(true);
@@ -147,20 +121,60 @@ const Transfers: NextPage = () => {
       }
     };
 
-    if (typeof window !== 'undefined') {
-      loadData();
-    }
+    setLoading(true);
+    loadData();
   }, []);
+
+  // State for inventory summary - initialized empty to avoid hydration mismatch
+  const [inventorySummary, setInventorySummary] = useState<Record<string, number>>({});
+
+  // State for detailed inventory breakdown by warehouse
+  const [inventoryBreakdown, setInventoryBreakdown] = useState<{
+    [warehouse: string]: Array<{
+      productName: string;
+      quantity: number;
+    }>;
+  }>({});
+
+  // Calculate inventory summary once when data is loaded
+  useEffect(() => {
+    if (inventoryItems.length > 0) {
+      const summary: Record<string, number> = {};
+      const breakdown: Record<string, Array<{productName: string, quantity: number}>> = {};
+      
+      activeWarehouses.forEach(warehouse => {
+        const warehouseItems = inventoryItems.filter((item: any) => item.warehouse === warehouse.codigo);
+        
+        summary[warehouse.codigo] = warehouseItems.reduce((sum: number, item: any) => 
+          sum + parseFloat(item.currentStock || 0), 0
+        );
+        
+        breakdown[warehouse.codigo] = warehouseItems
+          .map((item: any) => ({
+            productName: item.productName,
+            quantity: parseFloat(item.currentStock || 0)
+          }))
+          .sort((a: any, b: any) => b.quantity - a.quantity);
+      });
+      
+      setInventorySummary(summary);
+      setInventoryBreakdown(breakdown);
+    }
+  }, [inventoryItems.length]); // Only depend on length to avoid infinite loops
 
   // Get available products from inventory - use API data
   const availableProducts = products.filter(product => 
     product.activo
   );
 
-  // Get available quantities for selected product - simplified for now
+  // Get available quantities for selected product
   const getAvailableQuantity = (productId: number, warehouse: string) => {
-    // This will be updated when we have proper inventory data from API
-    return inventorySummary[warehouse as keyof typeof inventorySummary] || 0;
+    // Find the specific product in the selected warehouse using warehouse code directly
+    const productInWarehouse = inventoryItems.find((item: any) => 
+      item.productId === productId && item.warehouse === warehouse
+    );
+    
+    return productInWarehouse ? parseFloat(productInWarehouse.currentStock || 0) : 0;
   };
 
   const handleTransfer = async () => {
@@ -207,8 +221,7 @@ const Transfers: NextPage = () => {
         toWarehouse,
         notes: reason,
         createdBy: 'Admin',
-        status: 'completed' as const,
-        transferDate: data.data.transferDate
+        status: 'completed' as const
       }));
 
       // Add activity
@@ -231,47 +244,7 @@ const Transfers: NextPage = () => {
         const transfersData = await transfersRes.json();
         
         if (inventoryData.success) {
-          const inventoryItems = inventoryData.data || [];
-          
-          // Calculate summary totals
-          const summary = {
-            Principal: inventoryItems
-              .filter((item: any) => item.warehouse === 'Principal')
-              .reduce((sum: number, item: any) => sum + parseFloat(item.currentStock || 0), 0),
-            DVP: inventoryItems
-              .filter((item: any) => item.warehouse === 'DVP')
-              .reduce((sum: number, item: any) => sum + parseFloat(item.currentStock || 0), 0),
-            MMM: inventoryItems
-              .filter((item: any) => item.warehouse === 'MMM')
-              .reduce((sum: number, item: any) => sum + parseFloat(item.currentStock || 0), 0)
-          };
-          setInventorySummary(summary);
-
-          // Calculate detailed breakdown by warehouse
-          const breakdown = {
-            Principal: inventoryItems
-              .filter((item: any) => item.warehouse === 'Principal')
-              .map((item: any) => ({
-                productName: item.productName,
-                quantity: parseFloat(item.currentStock || 0)
-              }))
-              .sort((a, b) => b.quantity - a.quantity),
-            DVP: inventoryItems
-              .filter((item: any) => item.warehouse === 'DVP')
-              .map((item: any) => ({
-                productName: item.productName,
-                quantity: parseFloat(item.currentStock || 0)
-              }))
-              .sort((a, b) => b.quantity - a.quantity),
-            MMM: inventoryItems
-              .filter((item: any) => item.warehouse === 'MMM')
-              .map((item: any) => ({
-                productName: item.productName,
-                quantity: parseFloat(item.currentStock || 0)
-              }))
-              .sort((a, b) => b.quantity - a.quantity)
-          };
-          setInventoryBreakdown(breakdown);
+          setInventoryItems(inventoryData.data || []);
         }
         
         if (transfersData.success) {
@@ -362,14 +335,14 @@ const Transfers: NextPage = () => {
               </Typography>
               
               <Grid container spacing={2} sx={{ mt: 2 }}>
-                {warehouses.map((warehouse) => (
-                  <Grid item xs={12} sm={4} key={warehouse}>
+                {activeWarehouses.map((warehouse) => (
+                  <Grid item xs={12} sm={4} key={warehouse.codigo}>
                     <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="h6" color="primary">
-                        {warehouse}
+                        {warehouse.nombre}
                       </Typography>
                       <Typography variant="h4" fontWeight="bold">
-                        {inventorySummary[warehouse as keyof typeof inventorySummary]}
+                        {inventorySummary[warehouse.codigo as keyof typeof inventorySummary] || 0}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         unidades totales
@@ -381,8 +354,8 @@ const Transfers: NextPage = () => {
                           Desglose por producto:
                         </Typography>
                         <List dense sx={{ py: 0 }}>
-                          {inventoryBreakdown[warehouse].length > 0 ? (
-                            inventoryBreakdown[warehouse].map((item, index) => (
+                          {inventoryBreakdown[warehouse.codigo]?.length > 0 ? (
+                            inventoryBreakdown[warehouse.codigo].map((item, index) => (
                               <ListItem key={index} sx={{ py: 0, px: 0 }}>
                                 <ListItemText
                                   primary={
@@ -448,9 +421,9 @@ const Transfers: NextPage = () => {
                           label="Desde Almacén"
                           onChange={(e) => setFromWarehouse(e.target.value)}
                         >
-                          {warehouses.map((warehouse) => (
-                            <MenuItem key={warehouse} value={warehouse}>
-                              {warehouse}
+                          {activeWarehouses.map((warehouse) => (
+                            <MenuItem key={warehouse.codigo} value={warehouse.codigo}>
+                              {warehouse.nombre}
                             </MenuItem>
                           ))}
                         </Select>
@@ -465,9 +438,9 @@ const Transfers: NextPage = () => {
                           label="Hacia Almacén"
                           onChange={(e) => setToWarehouse(e.target.value)}
                         >
-                          {warehouses.map((warehouse) => (
-                            <MenuItem key={warehouse} value={warehouse}>
-                              {warehouse}
+                          {activeWarehouses.map((warehouse) => (
+                            <MenuItem key={warehouse.codigo} value={warehouse.codigo}>
+                              {warehouse.nombre}
                             </MenuItem>
                           ))}
                         </Select>
