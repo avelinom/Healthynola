@@ -28,7 +28,7 @@ export const fetchCategories = createAsyncThunk(
   'categories/fetchCategories',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await apiService.get('/categories');
+      const response = await apiService.get('/categories') as any;
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Error al cargar las categorías');
@@ -40,7 +40,7 @@ export const createCategory = createAsyncThunk(
   'categories/createCategory',
   async (categoryData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>, { rejectWithValue }) => {
     try {
-      const response = await apiService.post('/categories', categoryData);
+      const response = await apiService.post('/categories', categoryData) as any;
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Error al crear la categoría');
@@ -52,7 +52,7 @@ export const updateCategory = createAsyncThunk(
   'categories/updateCategory',
   async ({ id, ...categoryData }: Partial<Category> & { id: number }, { rejectWithValue }) => {
     try {
-      const response = await apiService.put(`/categories/${id}`, categoryData);
+      const response = await apiService.put(`/categories/${id}`, categoryData) as any;
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Error al actualizar la categoría');
