@@ -20,6 +20,94 @@ import {
   Restaurant as PizzaIcon
 } from '@mui/icons-material';
 
+// Componente de logo Healthynola
+const HealthynolaLogo = ({ size = 40 }) => (
+  <Box
+    sx={{
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      background: '#FF6B35',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      mr: 1
+    }}
+  >
+    <Typography
+      variant="h6"
+      sx={{
+        color: 'white',
+        fontWeight: 'bold',
+        fontFamily: 'monospace',
+        fontSize: size * 0.4
+      }}
+    >
+      H
+    </Typography>
+  </Box>
+);
+
+// Componente de logo Brebaxe
+const BrebaxeLogo = ({ size = 40 }) => (
+  <Box
+    sx={{
+      width: size,
+      height: size,
+      borderRadius: '8px',
+      background: '#1976D2',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      mr: 1,
+      border: '2px solid #FFD700'
+    }}
+  >
+    <Typography
+      variant="h6"
+      sx={{
+        color: 'white',
+        fontWeight: 'bold',
+        fontFamily: 'monospace',
+        fontSize: size * 0.3
+      }}
+    >
+      B
+    </Typography>
+  </Box>
+);
+
+// Componente de logo Pizzatta
+const PizzattaLogo = ({ size = 40 }) => (
+  <Box
+    sx={{
+      width: size,
+      height: size,
+      borderRadius: '8px',
+      background: '#2E7D32',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      mr: 1
+    }}
+  >
+    <Typography
+      variant="h6"
+      sx={{
+        color: 'white',
+        fontWeight: 'bold',
+        fontFamily: 'monospace',
+        fontSize: size * 0.3
+      }}
+    >
+      P
+    </Typography>
+  </Box>
+);
+
 const WelcomePage = () => {
   const router = useRouter();
   const theme = useTheme();
@@ -34,6 +122,7 @@ const WelcomePage = () => {
       id: 1,
       name: 'Granola Artesanal',
       brand: 'Healthynola',
+      brandLogo: <HealthynolaLogo size={50} />,
       description: 'Granola artesanal con ingredientes naturales y orgánicos',
       icon: <GranolaIcon sx={{ fontSize: 60, color: '#FF6B35' }} />,
       color: '#FF6B35',
@@ -43,6 +132,7 @@ const WelcomePage = () => {
       id: 2,
       name: 'Kombucha Artesanal',
       brand: 'Brebaxe',
+      brandLogo: <BrebaxeLogo size={50} />,
       description: 'Bebida fermentada artesanal de Zapopan, Jalisco',
       icon: <KombuchaIcon sx={{ fontSize: 60, color: '#1976D2' }} />,
       color: '#1976D2',
@@ -52,6 +142,7 @@ const WelcomePage = () => {
       id: 3,
       name: 'Pizza Artesanal',
       brand: 'Pizzatta',
+      brandLogo: <PizzattaLogo size={50} />,
       description: 'Pizza artesanal con masa hecha a mano',
       icon: <PizzaIcon sx={{ fontSize: 60, color: '#2E7D32' }} />,
       color: '#2E7D32',
@@ -85,30 +176,6 @@ const WelcomePage = () => {
               mb: 2
             }}
           >
-            <Box
-              sx={{
-                width: 60,
-                height: 60,
-                borderRadius: '50%',
-                background: '#FF6B35',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mr: 2,
-                position: 'relative'
-              }}
-            >
-              <Typography
-                variant="h4"
-                sx={{
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontFamily: 'monospace'
-                }}
-              >
-                H
-              </Typography>
-            </Box>
             <Typography
               variant="h3"
               sx={{
@@ -117,7 +184,7 @@ const WelcomePage = () => {
                 fontFamily: 'monospace'
               }}
             >
-              HEALTHYNOLA
+              GRUPO DAMMAD
             </Typography>
           </Box>
           <Typography
@@ -193,16 +260,25 @@ const WelcomePage = () => {
                   >
                     {product.name}
                   </Typography>
-                  <Typography
-                    variant="h6"
+                  <Box
                     sx={{
-                      color: '#666',
-                      mb: 2,
-                      fontWeight: 500
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mb: 2
                     }}
                   >
-                    {product.brand}
-                  </Typography>
+                    {product.brandLogo}
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: '#666',
+                        fontWeight: 500
+                      }}
+                    >
+                      {product.brand}
+                    </Typography>
+                  </Box>
                   <Typography
                     variant="body1"
                     sx={{
@@ -302,10 +378,10 @@ const WelcomePage = () => {
       >
         <Container maxWidth="lg">
           <Typography variant="body2" sx={{ opacity: 0.8 }}>
-            © 2025 Healthynola - Todos los derechos reservados
+            © 2025 Grupo DAMMAD - Todos los derechos reservados
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.6, mt: 1 }}>
-            Productos artesanales elaborados con amor y dedicación
+            Productos artesanales elaborados con amor y dedicación ❤️
           </Typography>
         </Container>
       </Box>
