@@ -53,16 +53,18 @@ const RolePermissionsSection = () => {
   const [rolePermissions, setRolePermissions] = useState<{ [module: string]: boolean }>({});
   const [saving, setSaving] = useState(false);
 
+  // Update role permissions when selected role changes
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      const perms = getRolePermissions(selectedRole);
+      setRolePermissions(perms);
+    }
+  }, [selectedRole, permissions, user?.role, getRolePermissions]);
+
   // Only show for admin users
   if (user?.role !== 'admin') {
     return null;
   }
-
-  // Update role permissions when selected role changes
-  useEffect(() => {
-    const perms = getRolePermissions(selectedRole);
-    setRolePermissions(perms);
-  }, [selectedRole, permissions]);
 
   const handlePermissionChange = (module: string, hasAccess: boolean) => {
     console.log('handlePermissionChange - module:', module, 'hasAccess:', hasAccess);

@@ -1,338 +1,316 @@
-import React, { useState, useEffect } from 'react';
-import { NextPage } from 'next';
-import Head from 'next/head';
-import { Box, Container, Typography, Card, CardContent, Grid, Button } from '@mui/material';
-import { 
-  Dashboard as DashboardIcon,
-  ShoppingCart as SalesIcon,
-  Inventory as InventoryIcon,
-  People as CustomersIcon,
-  Assessment as ReportsIcon,
-  Settings as SettingsIcon,
-  Factory as ProductionIcon,
-  SwapHoriz as TransferIcon,
-  People as PeopleIcon,
-  Receipt as ExpensesIcon,
-  Category as RawMaterialsIcon,
-  MenuBook as RecipesIcon,
-  Assignment as BatchesIcon,
-  Scale as PackagingIcon,
-  Warehouse as WarehouseIcon
-} from '@mui/icons-material';
+import React from 'react';
 import { useRouter } from 'next/router';
-import MobileLanding from '@/components/MobileLanding';
-// import { useAuth } from '@/hooks/useAuth';
-// import { usePermissions } from '@/hooks/usePermissions';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Grid,
+  Card,
+  CardContent,
+  CardMedia,
+  CardActions,
+  Paper,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
+import {
+  LocalDining as GranolaIcon,
+  LocalDrink as KombuchaIcon,
+  Restaurant as PizzaIcon
+} from '@mui/icons-material';
 
-const HomePage: NextPage = () => {
+const WelcomePage = () => {
   const router = useRouter();
-  const [isMobile, setIsMobile] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  
-  // Auth and permissions hooks - temporarily disabled
-  // const { isAuthenticated, user } = useAuth();
-  // const { hasAccessSync } = usePermissions();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Detect mobile device
-  useEffect(() => {
-    setIsClient(true);
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
-      const isSmallScreen = window.innerWidth <= 768;
-      setIsMobile(isMobileDevice || isSmallScreen);
-    };
+  const handleLogin = () => {
+    router.push('/login');
+  };
 
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Show loading state during client-side detection
-  if (!isClient) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <Typography>Cargando...</Typography>
-      </Box>
-    );
-  }
-
-  // Show mobile landing for mobile devices
-  if (isMobile) {
-    return <MobileLanding />;
-  }
-
-  const menuItems = [
+  const products = [
     {
-      title: 'Dashboard',
-      description: 'Resumen general del sistema',
-      icon: <DashboardIcon fontSize="large" />,
-      path: '/dashboard',
-      color: '#1976d2',
-      moduleId: 'dashboard'
+      id: 1,
+      name: 'Granola Artesanal',
+      brand: 'Healthynola',
+      description: 'Granola artesanal con ingredientes naturales y orgánicos',
+      icon: <GranolaIcon sx={{ fontSize: 60, color: '#FF6B35' }} />,
+      color: '#FF6B35',
+      features: ['Ingredientes naturales', 'Sin conservadores', 'Hecho a mano']
     },
     {
-      title: 'Materia Prima',
-      description: 'Gestión de materia prima y costos',
-      icon: <RawMaterialsIcon fontSize="large" />,
-      path: '/raw-materials',
-      color: '#607d8b',
-      moduleId: 'raw_materials'
+      id: 2,
+      name: 'Kombucha Artesanal',
+      brand: 'Brebaxe',
+      description: 'Bebida fermentada artesanal de Zapopan, Jalisco',
+      icon: <KombuchaIcon sx={{ fontSize: 60, color: '#1976D2' }} />,
+      color: '#1976D2',
+      features: ['Fermentación natural', '355 ml', 'Hecho en México']
     },
     {
-      title: 'Recetas',
-      description: 'Recetas de producción con costos',
-      icon: <RecipesIcon fontSize="large" />,
-      path: '/recipes',
-      color: '#ff9800',
-      moduleId: 'recipes'
-    },
-    {
-      title: 'Lotes',
-      description: 'Gestión de lotes de producción',
-      icon: <BatchesIcon fontSize="large" />,
-      path: '/batches',
-      color: '#3f51b5',
-      moduleId: 'batches'
-    },
-    {
-      title: 'Producción',
-      description: 'Producir y empacar lotes',
-      icon: <ProductionIcon fontSize="large" />,
-      path: '/production',
-      color: '#ff6f00',
-      moduleId: 'production'
-    },
-    {
-      title: 'Ventas',
-      description: 'Gestión de ventas y transacciones',
-      icon: <SalesIcon fontSize="large" />,
-      path: '/sales',
-      color: '#2e7d32',
-      moduleId: 'sales'
-    },
-    {
-      title: 'Productos',
-      description: 'Catálogo y gestión de productos',
-      icon: <InventoryIcon fontSize="large" />,
-      path: '/products',
-      color: '#795548',
-      moduleId: 'products'
-    },
-    {
-      title: 'Inventario',
-      description: 'Control de stock y productos',
-      icon: <InventoryIcon fontSize="large" />,
-      path: '/inventory',
-      color: '#ed6c02',
-      moduleId: 'inventory'
-    },
-    {
-      title: 'Transferencias',
-      description: 'Transferir stock entre almacenes',
-      icon: <TransferIcon fontSize="large" />,
-      path: '/transfers',
-      color: '#795548',
-      moduleId: 'transfers'
-    },
-    {
-      title: 'Clientes',
-      description: 'Base de datos de clientes',
-      icon: <CustomersIcon fontSize="large" />,
-      path: '/customers',
-      color: '#9c27b0',
-      moduleId: 'customers'
-    },
-    {
-      title: 'Gastos',
-      description: 'Registro y control de gastos',
-      icon: <ExpensesIcon fontSize="large" />,
-      path: '/expenses',
-      color: '#e91e63',
-      moduleId: 'expenses'
-    },
-    {
-      title: 'Reportes',
-      description: 'Análisis y estadísticas',
-      icon: <ReportsIcon fontSize="large" />,
-      path: '/reports',
-      color: '#d32f2f',
-      moduleId: 'reports'
-    },
-    {
-      title: 'Usuarios',
-      description: 'Gestión de usuarios y roles',
-      icon: <PeopleIcon fontSize="large" />,
-      path: '/users',
-      color: '#9c27b0',
-      moduleId: 'users'
-    },
-    {
-      title: 'Categorías',
-      description: 'Gestión de categorías de productos',
-      icon: <RawMaterialsIcon fontSize="large" />,
-      path: '/categories',
-      color: '#ff5722',
-      moduleId: 'categories'
-    },
-    {
-      title: 'Tipos de Empaque',
-      description: 'Gestión de tipos y tamaños de empaque',
-      icon: <PackagingIcon fontSize="large" />,
-      path: '/packaging-types',
-      color: '#00897b',
-      moduleId: 'packaging_types'
-    },
-    {
-      title: 'Almacenes',
-      description: 'Gestión de almacenes y ubicaciones',
-      icon: <WarehouseIcon fontSize="large" />,
-      path: '/warehouses',
-      color: '#795548',
-      moduleId: 'warehouses'
-    },
-    {
-      title: 'Configuración',
-      description: 'Ajustes del sistema',
-      icon: <SettingsIcon fontSize="large" />,
-      path: '/settings',
-      color: '#616161',
-      moduleId: 'settings'
+      id: 3,
+      name: 'Pizza Artesanal',
+      brand: 'Pizzatta',
+      description: 'Pizza artesanal con masa hecha a mano',
+      icon: <PizzaIcon sx={{ fontSize: 60, color: '#2E7D32' }} />,
+      color: '#2E7D32',
+      features: ['Masa artesanal', 'Ingredientes frescos', 'Horneado tradicional']
     }
   ];
 
-  // Filter menu items based on user permissions - temporarily disabled
-  const filteredMenuItems = menuItems; // Show all items for now
-
-  console.log('📋 Total menu items:', menuItems.length);
-  console.log('✅ Filtered menu items:', filteredMenuItems.length);
-
   return (
-    <>
-      <Head>
-        <title>Healthynola POS - Sistema de Gestión</title>
-        <meta name="description" content="Sistema de gestión de inventario y ventas para Healthynola" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
-      <Box sx={{ 
+    <Box
+      sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        py: 4
-      }}>
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          background: 'white',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          py: 3
+        }}
+      >
         <Container maxWidth="lg">
-          {/* Header */}
-          <Box textAlign="center" mb={6}>
-            <Typography 
-              variant="h2" 
-              component="h1" 
-              gutterBottom 
-              sx={{ 
-                color: 'white',
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 2
+            }}
+          >
+            <Box
+              sx={{
+                width: 60,
+                height: 60,
+                borderRadius: '50%',
+                background: '#FF6B35',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mr: 2,
+                position: 'relative'
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontFamily: 'monospace'
+                }}
+              >
+                H
+              </Typography>
+            </Box>
+            <Typography
+              variant="h3"
+              sx={{
                 fontWeight: 'bold',
-                textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                color: '#333',
+                fontFamily: 'monospace'
               }}
             >
-              🥣 Healthynola POS
-            </Typography>
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                color: 'rgba(255,255,255,0.9)',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-              }}
-            >
-              Sistema de Gestión de Inventario y Ventas
+              HEALTHYNOLA
             </Typography>
           </Box>
-
-          {/* Menu Grid */}
-          <Grid container spacing={3}>
-            {filteredMenuItems.map((item, index) => (
-              <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card 
-                  sx={{ 
-                    height: '100%',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                    }
-                  }}
-                  onClick={() => router.push(item.path)}
-                >
-                  <CardContent sx={{ 
-                    textAlign: 'center', 
-                    py: 4,
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center'
-                  }}>
-                    <Box 
-                      sx={{ 
-                        color: item.color,
-                        mb: 2
-                      }}
-                    >
-                      {item.icon}
-                    </Box>
-                    <Typography 
-                      variant="h6" 
-                      component="h2" 
-                      gutterBottom
-                      sx={{ 
-                        fontWeight: 'bold',
-                        color: 'text.primary'
-                      }}
-                    >
-                      {item.title}
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary"
-                      sx={{ mb: 2 }}
-                    >
-                      {item.description}
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      sx={{ 
-                        borderColor: item.color,
-                        color: item.color,
-                        '&:hover': {
-                          borderColor: item.color,
-                          backgroundColor: `${item.color}10`
-                        }
-                      }}
-                    >
-                      Acceder
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* Footer */}
-          <Box textAlign="center" mt={6}>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: 'rgba(255,255,255,0.7)',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-              }}
-            >
-              © 2024 Healthynola. Todos los derechos reservados.
-            </Typography>
-          </Box>
+          <Typography
+            variant="h6"
+            sx={{
+              textAlign: 'center',
+              color: '#666',
+              fontWeight: 300
+            }}
+          >
+            Productos Artesanales Premium
+          </Typography>
         </Container>
       </Box>
-    </>
+
+      {/* Main Content */}
+      <Container maxWidth="lg" sx={{ flex: 1, py: 6 }}>
+        {/* Hero Section */}
+        <Box sx={{ textAlign: 'center', mb: 6 }}>
+          <Typography
+            variant="h2"
+            sx={{
+              fontWeight: 'bold',
+              color: '#333',
+              mb: 2,
+              fontSize: isMobile ? '2.5rem' : '3.5rem'
+            }}
+          >
+            Productos Artesanales
+          </Typography>
+          <Typography
+            variant="h5"
+            sx={{
+              color: '#666',
+              mb: 4,
+              maxWidth: 600,
+              mx: 'auto',
+              lineHeight: 1.6
+            }}
+          >
+            Descubre nuestra selección de productos artesanales premium, 
+            elaborados con ingredientes naturales y técnicas tradicionales.
+          </Typography>
+        </Box>
+
+        {/* Products Grid */}
+        <Grid container spacing={4} sx={{ mb: 6 }}>
+          {products.map((product) => (
+            <Grid item xs={12} md={4} key={product.id}>
+              <Card
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 12px 24px rgba(0,0,0,0.15)'
+                  }
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center', flex: 1, p: 4 }}>
+                  <Box sx={{ mb: 3 }}>
+                    {product.icon}
+                  </Box>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontWeight: 'bold',
+                      color: product.color,
+                      mb: 1
+                    }}
+                  >
+                    {product.name}
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      color: '#666',
+                      mb: 2,
+                      fontWeight: 500
+                    }}
+                  >
+                    {product.brand}
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      color: '#777',
+                      mb: 3,
+                      lineHeight: 1.6
+                    }}
+                  >
+                    {product.description}
+                  </Typography>
+                  <Box>
+                    {product.features.map((feature, index) => (
+                      <Typography
+                        key={index}
+                        variant="body2"
+                        sx={{
+                          color: '#555',
+                          mb: 0.5,
+                          '&:before': {
+                            content: '"✓ "',
+                            color: product.color,
+                            fontWeight: 'bold'
+                          }
+                        }}
+                      >
+                        {feature}
+                      </Typography>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* CTA Section */}
+        <Paper
+          sx={{
+            p: 6,
+            textAlign: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3
+          }}
+        >
+          <Typography
+            variant="h4"
+            sx={{
+              fontWeight: 'bold',
+              mb: 2
+            }}
+          >
+            Sistema de Gestión
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{
+              mb: 4,
+              opacity: 0.9
+            }}
+          >
+            Accede a nuestro sistema de gestión de inventario y ventas
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handleLogin}
+            sx={{
+              background: 'white',
+              color: '#667eea',
+              px: 6,
+              py: 2,
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              borderRadius: 3,
+              '&:hover': {
+                background: '#f5f5f5',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.2)'
+              },
+              transition: 'all 0.3s ease-in-out'
+            }}
+          >
+            INICIAR SESIÓN
+          </Button>
+        </Paper>
+      </Container>
+
+      {/* Footer */}
+      <Box
+        sx={{
+          background: '#333',
+          color: 'white',
+          py: 3,
+          textAlign: 'center'
+        }}
+      >
+        <Container maxWidth="lg">
+          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            © 2025 Healthynola - Todos los derechos reservados
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.6, mt: 1 }}>
+            Productos artesanales elaborados con amor y dedicación
+          </Typography>
+        </Container>
+      </Box>
+    </Box>
   );
 };
 
-export default HomePage;
+export default WelcomePage;
