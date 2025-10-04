@@ -49,7 +49,7 @@ function AppContent({ Component, pageProps }: { Component: any; pageProps: any }
   }, []);
   
   // Routes that don't require authentication
-  const publicRoutes = ['/login'];
+  const publicRoutes = ['/', '/login'];
   const isPublicRoute = publicRoutes.includes(router.pathname);
 
   // Show loading during SSR
@@ -62,10 +62,16 @@ function AppContent({ Component, pageProps }: { Component: any; pageProps: any }
     );
   }
 
+  // If it's a public route, render without protection
+  if (isPublicRoute) {
+    return <Component {...pageProps} />;
+  }
+
+  // For protected routes, wrap with ProtectedRoute
   return (
-    <>
+    <ProtectedRoute>
       <Component {...pageProps} />
-    </>
+    </ProtectedRoute>
   );
 }
 
