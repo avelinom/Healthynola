@@ -1,0 +1,134 @@
+name: Deploy to Windows Azure VM
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          web-backend/package-lock.json
+          web-frontend/package-lock.json
+    
+    - name: Install Backend Dependencies
+      run: |
+        cd web-backend
+        npm ci
+    
+    - name: Install Frontend Dependencies
+      run: |
+        cd web-frontend
+        npm ci
+    
+    - name: Run Backend Tests
+      run: |
+        cd web-backend
+        npm run test
+    
+    - name: Run Frontend Tests
+      run: |
+        cd web-frontend
+        npm run test
+    
+    - name: Build Frontend
+      run: |
+        cd web-frontend
+        npm run build
+
+  deploy:
+    needs: test
+    runs-on: windows-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Deploy to Windows Azure VM
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        password: ${{ secrets.SSH_PASSWORD }}
+        port: 22
+        script: |
+          # Crear directorio de la aplicación
+          if (-not (Test-Path "C:\mi-proyecto")) {
+            New-Item -ItemType Directory -Path "C:\mi-proyecto"
+          }
+          Set-Location "C:\mi-proyecto"
+          
+          # Clonar/actualizar el repositorio
+          if (Test-Path ".git") {
+            git pull origin main
+          } else {
+            git clone https://github.com/USUARIO_ORGANIZACION/NOMBRE_REPOSITORIO.git .
+          }
+          
+          # Instalar dependencias del backend
+          Set-Location "web-backend"
+          npm ci --production
+          
+          # Instalar dependencias del frontend
+          Set-Location "..\web-frontend"
+          npm ci
+          npm run build
+          
+          # Configurar variables de entorno
+          Set-Location "..\web-backend"
+          $envContent = @"
+          NODE_ENV=production
+          PORT=3001
+          DB_HOST=localhost
+          DB_PORT=1433
+          DB_NAME=mi_proyecto_db
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          FRONTEND_URL=http://${{ secrets.SSH_HOST }}
+          "@
+          $envContent | Out-File -FilePath ".env" -Encoding UTF8
+          
+          # Ejecutar migraciones de base de datos
+          npm run migrate
+          
+          # Detener servicios existentes
+          Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force
+          
+          # Iniciar backend como servicio de Windows
+          $backendScript = "C:\mi-proyecto\web-backend\src\server.js"
+          $frontendScript = "C:\mi-proyecto\web-frontend"
+          
+          # Crear tareas programadas para iniciar los servicios
+          $action1 = New-ScheduledTaskAction -Execute "node" -Argument $backendScript -WorkingDirectory "C:\mi-proyecto\web-backend"
+          $action2 = New-ScheduledTaskAction -Execute "npm" -Argument "start" -WorkingDirectory $frontendScript
+          
+          $trigger1 = New-ScheduledTaskTrigger -AtStartup
+          $trigger2 = New-ScheduledTaskTrigger -AtStartup
+          
+          Register-ScheduledTask -TaskName "MiProyecto-Backend" -Action $action1 -Trigger $trigger1 -User "SYSTEM" -Force
+          Register-ScheduledTask -TaskName "MiProyecto-Frontend" -Action $action2 -Trigger $trigger2 -User "SYSTEM" -Force
+          
+          # Iniciar servicios
+          Start-ScheduledTask -TaskName "MiProyecto-Backend"
+          Start-ScheduledTask -TaskName "MiProyecto-Frontend"
+          
+          # Configurar IIS como reverse proxy (opcional)
+          # Import-Module WebAdministration
+          # New-Website -Name "MiProyecto" -Port 80 -PhysicalPath "C:\mi-proyecto\web-frontend\out"
