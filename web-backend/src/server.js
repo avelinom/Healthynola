@@ -38,7 +38,9 @@ const io = new Server(server, {
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://192.168.68.104:3000',
-      'http://192.168.68.104:3001'
+      'http://192.168.68.104:3001',
+      'https://healthynola.vercel.app',
+      'https://healthynola-8kaxe5va4-andresamiguelez-projects.vercel.app'
     ],
     methods: ['GET', 'POST']
   }
@@ -50,7 +52,9 @@ app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'http://192.168.68.104:3000',
-    'http://192.168.68.104:3001'
+    'http://192.168.68.104:3001',
+    'https://healthynola.vercel.app',
+    'https://healthynola-8kaxe5va4-andresamiguelez-projects.vercel.app'
   ],
   credentials: true
 }));
