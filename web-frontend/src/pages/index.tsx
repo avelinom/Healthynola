@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRouter } from 'next/router';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Box,
   Container,
@@ -12,13 +13,28 @@ import {
   CardActions,
   Paper,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  CircularProgress
 } from '@mui/material';
 import {
   LocalDining as GranolaIcon,
   LocalDrink as KombuchaIcon,
-  Restaurant as PizzaIcon
+  Restaurant as PizzaIcon,
+  ShoppingCart as SalesIcon,
+  People as CustomersIcon,
+  Inventory as InventoryIcon,
+  SwapHoriz as TransferIcon,
+  Receipt as ExpensesIcon,
+  Assessment as ReportsIcon,
+  Settings as SettingsIcon,
+  Category as CategoryIcon,
+  LocalShipping as WarehouseIcon,
+  Science as RawMaterialsIcon,
+  RestaurantMenu as RecipeIcon,
+  Work as BatchIcon,
+  Inventory2 as PackagingIcon
 } from '@mui/icons-material';
+import Link from 'next/link';
 
 // Componente de logo Healthynola
 const HealthynolaLogo = ({ size = 40 }) => (
@@ -112,10 +128,227 @@ const WelcomePage = () => {
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isAuthenticated, isLoading } = useAuth();
 
   const handleLogin = () => {
     router.push('/login');
   };
+
+  // Tarjetas del sistema para usuarios autenticados
+  const systemModules = [
+    {
+      title: 'Ventas',
+      description: 'Registro de ventas y transacciones',
+      icon: <SalesIcon sx={{ fontSize: 40, color: '#2e7d32' }} />,
+      href: '/sales',
+      color: '#e8f5e8'
+    },
+    {
+      title: 'Clientes',
+      description: 'Gestión de clientes',
+      icon: <CustomersIcon sx={{ fontSize: 40, color: '#9c27b0' }} />,
+      href: '/customers',
+      color: '#f3e5f5'
+    },
+    {
+      title: 'Productos',
+      description: 'Catálogo de productos',
+      icon: <InventoryIcon sx={{ fontSize: 40, color: '#1976d2' }} />,
+      href: '/products',
+      color: '#e3f2fd'
+    },
+    {
+      title: 'Inventario',
+      description: 'Control de stock',
+      icon: <InventoryIcon sx={{ fontSize: 40, color: '#ff9800' }} />,
+      href: '/inventory',
+      color: '#fff3e0'
+    },
+    {
+      title: 'Transferencias',
+      description: 'Transferir stock entre almacenes',
+      icon: <TransferIcon sx={{ fontSize: 40, color: '#795548' }} />,
+      href: '/transfers',
+      color: '#efebe9'
+    },
+    {
+      title: 'Gastos',
+      description: 'Registro y control de gastos',
+      icon: <ExpensesIcon sx={{ fontSize: 40, color: '#e91e63' }} />,
+      href: '/expenses',
+      color: '#fce4ec'
+    },
+    {
+      title: 'Reportes',
+      description: 'Generación de reportes y análisis',
+      icon: <ReportsIcon sx={{ fontSize: 40, color: '#00838f' }} />,
+      href: '/reports',
+      color: '#e0f7fa'
+    },
+    {
+      title: 'Configuración',
+      description: 'Configuración del sistema',
+      icon: <SettingsIcon sx={{ fontSize: 40, color: '#607d8b' }} />,
+      href: '/settings',
+      color: '#eceff1'
+    },
+    {
+      title: 'Categorías',
+      description: 'Gestión de categorías',
+      icon: <CategoryIcon sx={{ fontSize: 40, color: '#4caf50' }} />,
+      href: '/categories',
+      color: '#e8f5e8'
+    },
+    {
+      title: 'Almacenes',
+      description: 'Gestión de almacenes',
+      icon: <WarehouseIcon sx={{ fontSize: 40, color: '#9c27b0' }} />,
+      href: '/warehouses',
+      color: '#f3e5f5'
+    },
+    {
+      title: 'Materias Primas',
+      description: 'Gestión de materias primas',
+      icon: <RawMaterialsIcon sx={{ fontSize: 40, color: '#ff5722' }} />,
+      href: '/raw-materials',
+      color: '#fbe9e7'
+    },
+    {
+      title: 'Recetas',
+      description: 'Gestión de recetas',
+      icon: <RecipeIcon sx={{ fontSize: 40, color: '#795548' }} />,
+      href: '/recipes',
+      color: '#efebe9'
+    },
+    {
+      title: 'Lotes',
+      description: 'Gestión de lotes de producción',
+      icon: <BatchIcon sx={{ fontSize: 40, color: '#3f51b5' }} />,
+      href: '/batches',
+      color: '#e8eaf6'
+    },
+    {
+      title: 'Producción',
+      description: 'Proceso de producción',
+      icon: <BatchIcon sx={{ fontSize: 40, color: '#009688' }} />,
+      href: '/production',
+      color: '#e0f2f1'
+    },
+    {
+      title: 'Tipos de Empaque',
+      description: 'Gestión de tipos de empaque',
+      icon: <PackagingIcon sx={{ fontSize: 40, color: '#ff9800' }} />,
+      href: '/packaging-types',
+      color: '#fff3e0'
+    }
+  ];
+
+  // Mostrar loading mientras se verifica la autenticación
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 2
+        }}
+      >
+        <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          Cargando...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Si el usuario está autenticado, mostrar el dashboard
+  if (isAuthenticated) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          py: 4
+        }}
+      >
+        <Container maxWidth="lg">
+          {/* Header */}
+          <Box sx={{ textAlign: 'center', mb: 6 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 'bold',
+                color: '#333',
+                mb: 2,
+                fontSize: isMobile ? '2rem' : '2.5rem'
+              }}
+            >
+              🥣 Healthynola POS
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: '#666',
+                mb: 4
+              }}
+            >
+              Sistema de gestión de inventario y ventas
+            </Typography>
+          </Box>
+
+          {/* System Modules Grid */}
+          <Grid container spacing={3}>
+            {systemModules.map((module, index) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+                <Link href={module.href} style={{ textDecoration: 'none' }}>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4
+                      },
+                      backgroundColor: module.color,
+                      border: '1px solid #e0e0e0'
+                    }}
+                  >
+                    <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                      <Box sx={{ mb: 2 }}>
+                        {module.icon}
+                      </Box>
+                      <Typography
+                        variant="h6"
+                        component="h2"
+                        sx={{
+                          fontWeight: 600,
+                          mb: 1,
+                          color: '#333'
+                        }}
+                      >
+                        {module.title}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontSize: '0.875rem' }}
+                      >
+                        {module.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
+    );
+  }
 
   const products = [
     {
