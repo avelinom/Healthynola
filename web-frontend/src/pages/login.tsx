@@ -39,7 +39,7 @@ const Login: NextPage = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/dashboard');
+      router.push('/');
     }
   }, [isAuthenticated, router]);
 
@@ -68,7 +68,7 @@ const Login: NextPage = () => {
       const result = await login(formData.email, formData.password);
       
       if (result.success) {
-        router.push('/dashboard');
+        router.push('/');
       }
     } catch (error) {
       console.error('Login error:', error);
