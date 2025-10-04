@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://healthynola-backend.onrender.com/api';
+const API_BASE_URL = 'https://healthynola-backend.onrender.com/api';
 
 // Helper function to get token from localStorage
 const getAuthToken = (): string | null => {

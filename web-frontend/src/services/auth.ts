@@ -36,7 +36,7 @@ export interface MeResponse {
  */
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://healthynola-backend.onrender.com/api';
+    const API_URL = 'https://healthynola-backend.onrender.com/api';
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -70,7 +70,7 @@ export const logout = async (): Promise<void> => {
     const token = getToken();
     
     if (token) {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://healthynola-backend.onrender.com/api';
+      const API_URL = 'https://healthynola-backend.onrender.com/api';
       await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         headers: {
@@ -98,7 +98,7 @@ export const getMe = async (): Promise<MeResponse> => {
   }
 
   try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://healthynola-backend.onrender.com/api';
+    const API_URL = 'https://healthynola-backend.onrender.com/api';
     const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
       headers: {
