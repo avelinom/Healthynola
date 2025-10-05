@@ -82,3 +82,5 @@ exports.seed = async function(knex) {
   
   console.log('✅ Consignaciones de ejemplo creadas');
 };
+
+

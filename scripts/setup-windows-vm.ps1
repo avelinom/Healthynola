@@ -63,3 +63,5 @@ Write-Host "   - SSH_PASSWORD: tu_password_windows" -ForegroundColor White
 Write-Host "   - DB_USER: tu_usuario_sql_server" -ForegroundColor White
 Write-Host "   - DB_PASSWORD: tu_password_sql_server" -ForegroundColor White
 Write-Host "   - JWT_SECRET: $(New-Guid)" -ForegroundColor White
+
+

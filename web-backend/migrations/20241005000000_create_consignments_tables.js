@@ -37,3 +37,5 @@ exports.down = function(knex) {
     .dropTable('consignment_visits')
     .dropTable('consignments');
 };
+
+

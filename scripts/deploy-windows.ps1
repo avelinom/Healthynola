@@ -60,3 +60,5 @@ Write-Host "✅ Despliegue completado!" -ForegroundColor Green
 Write-Host "🌐 Aplicación disponible en: http://$(Invoke-RestMethod -Uri 'https://api.ipify.org')" -ForegroundColor Cyan
 Write-Host "📊 Estado de servicios:" -ForegroundColor Cyan
 pm2 status
+
+

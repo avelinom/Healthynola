@@ -66,3 +66,5 @@ Write-Host "   - Puerto: 1433" -ForegroundColor White
 Write-Host "   - Base de datos: mi_proyecto_db" -ForegroundColor White
 Write-Host "   - Usuario: mi_proyecto_user" -ForegroundColor White
 Write-Host "   - Contraseña: mi_proyecto_secure_password_2024" -ForegroundColor White
+
+
