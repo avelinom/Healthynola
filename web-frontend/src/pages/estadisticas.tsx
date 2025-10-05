@@ -100,12 +100,13 @@ const Estadisticas = () => {
         console.log('[ESTADISTICAS] Sample inventory item:', inventory[0]);
         
         const lowStockProducts = inventory.filter(item => {
-          const currentStock = Number(item.currentStock ?? item.current_stock ?? 0);
-          const minStock = Number(item.minStock ?? item.min_stock ?? 0);
+          const itemAny = item as any;
+          const currentStock = Number(item.currentStock ?? itemAny.current_stock ?? 0);
+          const minStock = Number(itemAny.minStock ?? itemAny.min_stock ?? 0);
           const isLowStock = minStock > 0 && currentStock > 0 && currentStock <= minStock;
           if (isLowStock) {
             console.log('[ESTADISTICAS] LOW STOCK:', { 
-              product: item.productName || item.product_name, 
+              product: itemAny.productName || itemAny.product_name, 
               currentStock, 
               minStock 
             });
@@ -114,13 +115,14 @@ const Estadisticas = () => {
         });
         
         const outOfStockProducts = inventory.filter(item => {
-          const currentStock = item.currentStock ?? item.current_stock ?? 0;
+          const itemAny = item as any;
+          const currentStock = item.currentStock ?? itemAny.current_stock ?? 0;
           const isOutOfStock = Number(currentStock) === 0;
           if (isOutOfStock) {
             console.log('[ESTADISTICAS] OUT OF STOCK:', { 
-              product: item.productName || item.product_name, 
+              product: item.productName || itemAny.product_name, 
               warehouse: item.warehouse,
-              currentStock: item.currentStock ?? item.current_stock 
+              currentStock: item.currentStock ?? itemAny.current_stock 
             });
           }
           return isOutOfStock;

@@ -114,13 +114,14 @@ const Sales: NextPage = () => {
 
     const product = activeProducts.find(p => p.nombre === selectedProduct);
     if (!product) return;
-
+    
+    const productAny = product as any;
     const newItem: SaleItem = {
       id: Date.now(),
       product: selectedProduct,
       quantity,
-      unitPrice: product.precioVenta,
-      subtotal: quantity * product.precioVenta
+      unitPrice: productAny.precioVenta || productAny.price,
+      subtotal: quantity * (productAny.precioVenta || productAny.price)
     };
 
     setSaleItems([...saleItems, newItem]);

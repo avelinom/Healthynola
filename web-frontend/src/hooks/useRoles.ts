@@ -57,8 +57,9 @@ export const useRoles = () => {
         return { success: true, message: response.message, data: response.data };
       } else {
         // Handle validation errors array or single error message
-        const errorMsg = response.errors 
-          ? response.errors.map((e: any) => e.msg).join(', ')
+        const responseWithErrors = response as any;
+        const errorMsg = responseWithErrors.errors 
+          ? responseWithErrors.errors.map((e: any) => e.msg).join(', ')
           : (response.error || response.message || 'Error al crear rol');
         setError(errorMsg);
         return { success: false, message: errorMsg };

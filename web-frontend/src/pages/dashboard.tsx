@@ -48,7 +48,7 @@ const Dashboard = () => {
         try {
           const response = await permissionsService.getAllPermissions();
           if (response[user.role]) {
-            setUserPermissions(response[user.role]);
+            setUserPermissions(response[user.role] as any);
           }
         } catch (error) {
           console.error('Error loading permissions:', error);

@@ -383,7 +383,7 @@ const Roles: NextPage = () => {
         {/* Dialog: Manage Permissions */}
         <Dialog open={openPermissionsDialog} onClose={handleClosePermissions} maxWidth="md" fullWidth>
           <DialogTitle>
-            Permisos de "{selectedRole?.display_name}"
+            Permisos de &quot;{selectedRole?.display_name}&quot;
           </DialogTitle>
           <DialogContent>
             {loadingPermissions ? (

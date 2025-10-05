@@ -305,7 +305,7 @@ const ConsignmentVisits: NextPage = () => {
                               </Box>
                             </TableCell>
                             <TableCell align="center">{visit.quantity} unidades</TableCell>
-                            <TableCell align="center">{formatDate(visit.delivery_date)}</TableCell>
+                            <TableCell align="center">{formatDate((visit as any).delivery_date || (visit as any).deliveryDate)}</TableCell>
                             <TableCell align="center">{formatDate(visit.visit_date)}</TableCell>
                             <TableCell align="center">{visit.responsible_user}</TableCell>
                             <TableCell align="center">
