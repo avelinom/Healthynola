@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
+import { apiService } from '@/services/api';
 import { 
   setBatches, 
   addBatch, 
@@ -18,13 +19,12 @@ export const useBatches = () => {
     dispatch(setLoading(true));
     try {
       const params = estado ? `?estado=${estado}` : '';
-      const response = await fetch(`/api/batches${params}`);
-      const data = await response.json();
+      const response = await apiService.getBatches(params);
 
-      if (data.success) {
-        dispatch(setBatches(data.data));
+      if (response.success) {
+        dispatch(setBatches(response.data));
       } else {
-        dispatch(setError(data.message));
+        dispatch(setError(response.message || 'Error al cargar lotes'));
       }
     } catch (err: any) {
       dispatch(setError(err.message));

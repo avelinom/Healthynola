@@ -227,18 +227,6 @@ const Login: NextPage = () => {
                   )}
                 </Button>
               </form>
-
-              {/* Demo Credentials */}
-              <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Credenciales de Prueba:
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <strong>Admin:</strong> admin@healthynola.com / admin123<br />
-                  <strong>Manager:</strong> manager@healthynola.com / manager123<br />
-                  <strong>Cajero:</strong> cashier@healthynola.com / cashier123
-                </Typography>
-              </Box>
             </CardContent>
           </Paper>
 

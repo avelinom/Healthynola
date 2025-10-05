@@ -95,6 +95,7 @@ const Reports: NextPage = () => {
     todaySales: 0,
     todayTransactions: 0,
     lowStockCount: 0,
+    outOfStockCount: 0,
     activeCustomersCount: 0
   });
 
@@ -120,25 +121,37 @@ const Reports: NextPage = () => {
         const customers = customersData.data || [];
         const inventoryItems = inventoryData.data || [];
         
-        // Calculate today's sales (using Mexico Central time)
+        // Calculate today's sales (using local time zone)
         const today = new Date();
-        // Get today's date in UTC (sales are stored in UTC which corresponds to Mexico Central GMT-6)
-        const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+        // Get today's date in local time (YYYY-MM-DD format)
+        const todayStr = today.getFullYear() + '-' + 
+                        String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(today.getDate()).padStart(2, '0');
         
         const todaySales = sales.filter((sale: any) => {
           const saleDate = new Date(sale.createdAt || sale.created_at || sale.timestamp);
-          // Compare dates directly in UTC (backend stores in Mexico time but as UTC)
-          const saleDateStr = saleDate.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+          // Get sale date in local time (YYYY-MM-DD format)
+          const saleDateStr = saleDate.getFullYear() + '-' + 
+                             String(saleDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                             String(saleDate.getDate()).padStart(2, '0');
           return saleDateStr === todayStr;
         });
         
         const todaySalesAmount = todaySales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total || sale.finalAmount || 0), 0);
         const todayTransactionsCount = todaySales.length;
         
-        // Calculate low stock count
-        const lowStockCount = inventoryItems.filter((item: any) => 
-          parseFloat(item.currentStock || 0) < parseFloat(item.minStock || 0)
-        ).length;
+        // Calculate low stock and out of stock counts
+        // Soportar tanto camelCase como snake_case para compatibilidad
+        const lowStockCount = inventoryItems.filter((item: any) => {
+          const currentStock = Number(item.currentStock ?? item.current_stock ?? 0);
+          const minStock = Number(item.minStock ?? item.min_stock ?? 0);
+          return minStock > 0 && currentStock > 0 && currentStock <= minStock;
+        }).length;
+        
+        const outOfStockCount = inventoryItems.filter((item: any) => {
+          const currentStock = item.currentStock ?? item.current_stock ?? 0;
+          return Number(currentStock) === 0;
+        }).length;
         
         // Calculate active customers count
         const activeCustomersCount = customers.filter((c: any) => c.activo !== false).length;
@@ -147,6 +160,7 @@ const Reports: NextPage = () => {
           todaySales: todaySalesAmount,
           todayTransactions: todayTransactionsCount,
           lowStockCount: lowStockCount,
+          outOfStockCount: outOfStockCount,
           activeCustomersCount: activeCustomersCount
         });
         
@@ -232,8 +246,8 @@ const Reports: NextPage = () => {
       color: 'primary'
     },
     {
-      title: 'Stock Bajo',
-      value: loading ? '...' : (isClient ? stats.lowStockCount : 0),
+      title: 'Stock Bajo / Agotado',
+      value: loading ? '...' : (isClient ? `${stats.lowStockCount} / ${stats.outOfStockCount}` : '0 / 0'),
       icon: <CustomersIcon sx={{ fontSize: 40, color: 'warning.main' }} />,
       color: 'warning'
     },

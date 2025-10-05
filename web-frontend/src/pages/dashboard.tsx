@@ -1,347 +1,344 @@
 import React, { useState, useEffect } from 'react';
-import { NextPage } from 'next';
-import Head from 'next/head';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/store';
-import { Activity } from '@/store/slices/activitySlice';
-import { useProducts } from '@/hooks/useProducts';
-import { useCustomers } from '@/hooks/useCustomers';
+import { useRouter } from 'next/router';
+import { useAuth } from '@/hooks/useAuth';
+import { permissionsService } from '@/services/permissions';
 import {
+  Box,
+  Container,
+  Typography,
   Grid,
   Card,
   CardContent,
-  Typography,
-  Box,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Chip,
+  useTheme,
+  useMediaQuery,
   CircularProgress
 } from '@mui/material';
-import {
-  TrendingUp as TrendingUpIcon,
-  ShoppingCart as SalesIcon,
-  Inventory as InventoryIcon,
-  People as PeopleIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckIcon
-} from '@mui/icons-material';
 import Layout from '@/components/Layout';
+import {
+  ShoppingCart as SalesIcon,
+  People as CustomersIcon,
+  Inventory as InventoryIcon,
+  SwapHoriz as TransferIcon,
+  Receipt as ExpensesIcon,
+  Assessment as ReportsIcon,
+  Assessment as AssessmentIcon,
+  Settings as SettingsIcon,
+  Category as CategoryIcon,
+  LocalShipping as WarehouseIcon,
+  Science as RawMaterialsIcon,
+  RestaurantMenu as RecipeIcon,
+  Work as BatchIcon,
+  Inventory2 as PackagingIcon,
+  CalendarToday as ConsignmentIcon,
+  PersonAdd as UsersIcon
+} from '@mui/icons-material';
+import Link from 'next/link';
 
-const Dashboard: NextPage = () => {
-  const [products, setProducts] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  // Get data from Redux store
-  const activities = useSelector((state: RootState) => state.activity.activities);
-  const sales = useSelector((state: RootState) => state.sales.sales);
+const Dashboard = () => {
+  const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const [userPermissions, setUserPermissions] = useState<{ [key: string]: { has_access: boolean } }>({});
 
-  // State for client-side stats to avoid hydration mismatch
-  const [isClient, setIsClient] = useState(false);
-  const [stats, setStats] = useState({
-    todaySales: 0,
-    totalProducts: 0,
-    lowStockItems: 0,
-    totalCustomers: 0
+  // Cargar permisos del usuario
+  useEffect(() => {
+    const loadUserPermissions = async () => {
+      if (user && user.role) {
+        try {
+          const response = await permissionsService.getAllPermissions();
+          if (response[user.role]) {
+            setUserPermissions(response[user.role]);
+          }
+        } catch (error) {
+          console.error('Error loading permissions:', error);
+        }
+      }
+    };
+
+    if (isAuthenticated) {
+      loadUserPermissions();
+    }
+  }, [user, isAuthenticated]);
+
+  // Tarjetas del sistema para usuarios autenticados
+  const systemModules = [
+    {
+      title: 'Sales Overview',
+      description: 'Métricas y estadísticas del sistema',
+      icon: <AssessmentIcon sx={{ fontSize: 40, color: '#607d8b' }} />,
+      href: '/estadisticas',
+      color: '#eceff1',
+      moduleId: 'estadisticas'
+    },
+    {
+      title: 'Ventas',
+      description: 'Registro de ventas y transacciones',
+      icon: <SalesIcon sx={{ fontSize: 40, color: '#2e7d32' }} />,
+      href: '/sales',
+      color: '#e8f5e8',
+      moduleId: 'sales'
+    },
+    {
+      title: 'Clientes',
+      description: 'Gestión de clientes',
+      icon: <CustomersIcon sx={{ fontSize: 40, color: '#9c27b0' }} />,
+      href: '/customers',
+      color: '#f3e5f5',
+      moduleId: 'customers'
+    },
+    {
+      title: 'Productos',
+      description: 'Catálogo de productos',
+      icon: <InventoryIcon sx={{ fontSize: 40, color: '#1976d2' }} />,
+      href: '/products',
+      color: '#e3f2fd',
+      moduleId: 'products'
+    },
+    {
+      title: 'Inventario',
+      description: 'Control de stock',
+      icon: <InventoryIcon sx={{ fontSize: 40, color: '#ff9800' }} />,
+      href: '/inventory',
+      color: '#fff3e0',
+      moduleId: 'inventory'
+    },
+    {
+      title: 'Transferencias',
+      description: 'Transferir stock entre almacenes',
+      icon: <TransferIcon sx={{ fontSize: 40, color: '#795548' }} />,
+      href: '/transfers',
+      color: '#efebe9',
+      moduleId: 'transfers'
+    },
+    {
+      title: 'Gastos',
+      description: 'Registro y control de gastos',
+      icon: <ExpensesIcon sx={{ fontSize: 40, color: '#e91e63' }} />,
+      href: '/expenses',
+      color: '#fce4ec',
+      moduleId: 'expenses'
+    },
+    {
+      title: 'Reportes',
+      description: 'Generación de reportes y análisis',
+      icon: <ReportsIcon sx={{ fontSize: 40, color: '#00838f' }} />,
+      href: '/reports',
+      color: '#e0f7fa',
+      moduleId: 'reports'
+    },
+    {
+      title: 'Gestionar Usuarios',
+      description: 'Administración de usuarios',
+      icon: <UsersIcon sx={{ fontSize: 40, color: '#3f51b5' }} />,
+      href: '/users',
+      color: '#e8eaf6',
+      moduleId: 'users'
+    },
+    {
+      title: 'Roles y Permisos',
+      description: 'Configuración de roles del sistema',
+      icon: <SettingsIcon sx={{ fontSize: 40, color: '#7b1fa2' }} />,
+      href: '/roles',
+      color: '#f3e5f5',
+      moduleId: 'roles'
+    },
+    {
+      title: 'Configuración',
+      description: 'Configuración del sistema',
+      icon: <SettingsIcon sx={{ fontSize: 40, color: '#607d8b' }} />,
+      href: '/settings',
+      color: '#eceff1',
+      moduleId: 'settings'
+    },
+    {
+      title: 'Categorías',
+      description: 'Gestión de categorías',
+      icon: <CategoryIcon sx={{ fontSize: 40, color: '#4caf50' }} />,
+      href: '/categories',
+      color: '#e8f5e8',
+      moduleId: 'categories'
+    },
+    {
+      title: 'Almacenes',
+      description: 'Gestión de almacenes',
+      icon: <WarehouseIcon sx={{ fontSize: 40, color: '#9c27b0' }} />,
+      href: '/warehouses',
+      color: '#f3e5f5',
+      moduleId: 'warehouses'
+    },
+    {
+      title: 'Materias Primas',
+      description: 'Gestión de materias primas',
+      icon: <RawMaterialsIcon sx={{ fontSize: 40, color: '#ff5722' }} />,
+      href: '/raw-materials',
+      color: '#fbe9e7',
+      moduleId: 'raw-materials'
+    },
+    {
+      title: 'Recetas',
+      description: 'Gestión de recetas',
+      icon: <RecipeIcon sx={{ fontSize: 40, color: '#795548' }} />,
+      href: '/recipes',
+      color: '#efebe9',
+      moduleId: 'recipes'
+    },
+    {
+      title: 'Lotes',
+      description: 'Gestión de lotes de producción',
+      icon: <BatchIcon sx={{ fontSize: 40, color: '#3f51b5' }} />,
+      href: '/batches',
+      color: '#e8eaf6',
+      moduleId: 'batches'
+    },
+    {
+      title: 'Producción',
+      description: 'Proceso de producción',
+      icon: <BatchIcon sx={{ fontSize: 40, color: '#009688' }} />,
+      href: '/production',
+      color: '#e0f2f1',
+      moduleId: 'production'
+    },
+    {
+      title: 'Tipos de Empaque',
+      description: 'Gestión de tipos de empaque',
+      icon: <PackagingIcon sx={{ fontSize: 40, color: '#ff9800' }} />,
+      href: '/packaging-types',
+      color: '#fff3e0',
+      moduleId: 'packaging-types'
+    },
+    {
+      title: 'Visitas a Consignatarios',
+      description: 'Gestión de visitas a consignatarios',
+      icon: <ConsignmentIcon sx={{ fontSize: 40, color: '#e91e63' }} />,
+      href: '/consignment-visits',
+      color: '#fce4ec',
+      moduleId: 'consignment-visits'
+    }
+  ];
+
+  // Filtrar módulos según permisos del usuario
+  const filteredModules = systemModules.filter(module => {
+    // Si es admin, mostrar todo
+    if (user?.role === 'admin') return true;
+    
+    // Si no hay permisos cargados aún, no mostrar nada
+    if (!userPermissions || Object.keys(userPermissions).length === 0) return false;
+    
+    // Verificar si el usuario tiene acceso al módulo
+    return userPermissions[module.moduleId]?.has_access === true;
   });
 
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  // Mostrar loading mientras se verifica la autenticación
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 2
+        }}
+      >
+        <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          Cargando...
+        </Typography>
+      </Box>
+    );
+  }
 
-  // Load data directly from API
-  const loadData = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      const [productsRes, customersRes, inventoryRes, salesRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/customers'),
-        fetch('/api/inventory'),
-        fetch('/api/sales')
-      ]);
-      
-      const productsData = await productsRes.json();
-      const customersData = await customersRes.json();
-      const inventoryData = await inventoryRes.json();
-      const salesData = await salesRes.json();
-      
-      setProducts(productsData.data || []);
-      setCustomers(customersData.data || []);
-      setInventoryItems(inventoryData.data || []);
-      
-      // Calculate stats with API data
-      if (salesData.success) {
-        const apiSales = salesData.data || [];
-        
-          // Calculate today's sales (using Mexico Central time)
-          const today = new Date();
-          // Get today's date in UTC (sales are stored in UTC which corresponds to Mexico Central GMT-6)
-          const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
-          
-          const todaySales = apiSales.filter((sale: any) => {
-            const saleDate = new Date(sale.createdAt || sale.created_at || sale.timestamp);
-            // Compare dates directly in UTC (backend stores in Mexico time but as UTC)
-            const saleDateStr = saleDate.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
-            return saleDateStr === todayStr;
-          });
-        
-        const todaySalesAmount = todaySales.reduce((sum: number, sale: any) => sum + parseFloat(sale.total || sale.finalAmount || 0), 0);
-        const lowStockCount = (inventoryData.data || []).filter((item: any) => 
-          parseFloat(item.currentStock || 0) < parseFloat(item.minStock || 0)
-        ).length;
-        
-        setStats({
-          todaySales: todaySalesAmount,
-          totalProducts: (productsData.data || []).filter((p: any) => p.activo).length,
-          lowStockItems: lowStockCount,
-          totalCustomers: (customersData.data || []).filter((c: any) => c.activo !== false).length
-        });
-      }
-      
-      setIsClient(true);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      loadData();
-    }
-  }, [loadData]);
-
-  // Auto-refresh when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadData();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [loadData]);
-
-  // Generate recent activity from API data (client-side only)
-  useEffect(() => {
-    if (isClient && products.length > 0 && customers.length > 0) {
-      // Generate recent activity from products and customers
-      const generatedActivities: Activity[] = [];
-      
-      // Add recent products (sorted by created_at)
-      const recentProducts = [...products]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 2);
-      
-      recentProducts.forEach(product => {
-        generatedActivities.push({
-          id: `product-${product.id}`,
-          type: 'product',
-          action: 'Producto agregado',
-          details: `${product.nombre}`,
-          timestamp: product.created_at,
-          userId: '1'
-        });
-      });
-
-      // Add recent customers (sorted by created_at)
-      const recentCustomers = [...customers]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 2);
-      
-      recentCustomers.forEach(customer => {
-        generatedActivities.push({
-          id: `customer-${customer.id}`,
-          type: 'customer',
-          action: 'Cliente registrado',
-          details: `${customer.name}`,
-          timestamp: customer.created_at,
-          userId: '1'
-        });
-      });
-
-      // Sort all activities by timestamp and take the 5 most recent
-      const sortedActivities = generatedActivities
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 5);
-
-      setRecentActivity(sortedActivities);
-    }
-  }, [products, customers, isClient]);
-
-  // Calculate low stock alerts dynamically
-  const lowStockAlerts = inventoryItems
-    .filter(item => item.currentStock < item.minStock)
-    .map(item => ({
-      product: item.productName,
-      currentStock: item.currentStock,
-      minStock: item.minStock,
-      warehouse: item.warehouse
-    }));
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('es-CO', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
+  // Si no está autenticado, redirigir al login
+  if (!isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
 
   return (
-    <>
-      <Head>
-        <title>Dashboard - Healthynola POS</title>
-        <meta name="description" content="Panel de control del sistema Healthynola POS" />
-      </Head>
-
-      <Layout title="Dashboard">
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <CircularProgress />
+    <Layout title="">
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          py: 4
+        }}
+      >
+        <Container maxWidth="lg">
+          {/* Header */}
+          <Box sx={{ textAlign: 'center', mb: 6 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 'bold',
+                color: '#333',
+                mb: 2,
+                fontSize: isMobile ? '2rem' : '2.5rem'
+              }}
+            >
+              🥣 Healthynola POS
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: '#666',
+                mb: 4
+              }}
+            >
+              Sistema de gestión de inventario y ventas
+            </Typography>
           </Box>
-        ) : (
-          <>
-            {/* Stats Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="body2">
-                      Ventas Hoy
-                    </Typography>
-                    <Typography variant="h5" component="h2">
-                      {isClient ? formatCurrency(stats.todaySales) : '$0'}
-                    </Typography>
-                  </Box>
-                  <TrendingUpIcon sx={{ fontSize: 40, color: 'success.main' }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="body2">
-                      Productos
-                    </Typography>
-                    <Typography variant="h5" component="h2">
-                      {isClient ? stats.totalProducts : 0}
-                    </Typography>
-                  </Box>
-                  <SalesIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-                </Box>
-              </CardContent>
-            </Card>
+          {/* System Modules Grid */}
+          <Grid container spacing={3}>
+            {filteredModules.map((module, index) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+                <Link href={module.href} style={{ textDecoration: 'none' }}>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: 4
+                      },
+                      backgroundColor: module.color,
+                      border: '1px solid #e0e0e0'
+                    }}
+                  >
+                    <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                      <Box sx={{ mb: 2 }}>
+                        {module.icon}
+                      </Box>
+                      <Typography
+                        variant="h6"
+                        component="h2"
+                        sx={{
+                          fontWeight: 600,
+                          mb: 1,
+                          color: '#333'
+                        }}
+                      >
+                        {module.title}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ fontSize: '0.875rem' }}
+                      >
+                        {module.description}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </Grid>
+            ))}
           </Grid>
-
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="body2">
-                      Stock Bajo
-                    </Typography>
-                    <Typography variant="h5" component="h2" color="warning.main">
-                      {isClient ? stats.lowStockItems : 0}
-                    </Typography>
-                  </Box>
-                  <WarningIcon sx={{ fontSize: 40, color: 'warning.main' }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="body2">
-                      Clientes
-                    </Typography>
-                    <Typography variant="h5" component="h2">
-                      {isClient ? stats.totalCustomers : 0}
-                    </Typography>
-                  </Box>
-                  <PeopleIcon sx={{ fontSize: 40, color: 'info.main' }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        <Grid container spacing={3}>
-          {/* Recent Activity */}
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Actividad Reciente
-              </Typography>
-              <List>
-                {recentActivity.map((activity) => (
-                  <ListItem key={activity.id} divider>
-                    <ListItemIcon>
-                      {activity.type === 'sale' && <SalesIcon color="success" />}
-                      {activity.type === 'inventory' && <InventoryIcon color="primary" />}
-                      {activity.type === 'customer' && <PeopleIcon color="info" />}
-                      {activity.type === 'product' && <InventoryIcon color="secondary" />}
-                      {activity.type === 'user' && <PeopleIcon color="warning" />}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={activity.action}
-                      secondary={`${activity.details} - ${formatTime(activity.timestamp)}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Paper>
-          </Grid>
-
-          {/* Low Stock Alerts */}
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WarningIcon color="warning" />
-                Alertas de Stock
-              </Typography>
-              <List>
-                {lowStockAlerts.map((alert, index) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
-                    <ListItemText
-                      primary={alert.product}
-                      secondary={`Almacén: ${alert.warehouse} | Stock: ${alert.currentStock} | Mín: ${alert.minStock}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Paper>
-          </Grid>
-        </Grid>
-          </>
-        )}
-      </Layout>
-    </>
+        </Container>
+      </Box>
+    </Layout>
   );
 };
 

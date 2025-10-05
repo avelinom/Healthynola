@@ -30,6 +30,11 @@ export const useCustomers = () => {
     }
   }, [dispatch]);
 
+  // Cargar clientes automáticamente al montar el componente
+  useEffect(() => {
+    loadCustomers();
+  }, []); // Empty dependency array to run only once
+
   // Crear cliente
   const createCustomer = async (customerData: any) => {
     try {

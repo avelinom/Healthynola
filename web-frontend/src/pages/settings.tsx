@@ -17,9 +17,13 @@ import {
   ListItemText,
   ListItemIcon,
   Alert,
-  Snackbar,
   CircularProgress,
-  Chip
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -29,275 +33,233 @@ import {
   Backup as BackupIcon,
   Update as UpdateIcon,
   AdminPanelSettings as AdminIcon,
-  ToggleOn as ToggleOnIcon,
-  ToggleOff as ToggleOffIcon
+  Lock as LockIcon,
+  People as PeopleIcon,
+  Download as DownloadIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import Layout from '@/components/Layout';
-import { usePermissions } from '@/hooks/usePermissions';
+import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
+import { useUsers } from '@/hooks/useUsers';
+import { useRouter } from 'next/router';
 
-// Role Permissions Component
-const RolePermissionsSection = () => {
-  const { user } = useAuth();
-  const { 
-    permissions, 
-    modules, 
-    loading, 
-    error, 
-    updatePermissions, 
-    getRolePermissions, 
-    getRoles 
-  } = usePermissions();
-  
-  const [selectedRole, setSelectedRole] = useState('admin');
-  const [rolePermissions, setRolePermissions] = useState<{ [module: string]: boolean }>({});
-  const [saving, setSaving] = useState(false);
-
-  // Update role permissions when selected role changes
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      const perms = getRolePermissions(selectedRole);
-      setRolePermissions(perms);
-    }
-  }, [selectedRole, permissions, user?.role, getRolePermissions]);
-
-  // Only show for admin users
-  if (user?.role !== 'admin') {
-    return null;
-  }
-
-  const handlePermissionChange = (module: string, hasAccess: boolean) => {
-    console.log('handlePermissionChange - module:', module, 'hasAccess:', hasAccess);
-    setRolePermissions(prev => ({
-      ...prev,
-      [module]: hasAccess
-    }));
-  };
-
-  const handleSave = async () => {
-    try {
-      console.log('handleSave - selectedRole:', selectedRole);
-      console.log('handleSave - rolePermissions:', rolePermissions);
-      setSaving(true);
-      await updatePermissions(selectedRole, rolePermissions);
-      // Show success message (you can add a snackbar here)
-      console.log('Permissions saved successfully');
-    } catch (error) {
-      console.error('Error saving permissions:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-            <CircularProgress />
-            <Typography sx={{ ml: 2 }}>Cargando permisos...</Typography>
-          </Box>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Alert severity="error">{error}</Alert>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card sx={{ mt: 3 }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <AdminIcon sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="h6" component="h2">
-            Configuración de Acceso por Roles
-          </Typography>
-        </Box>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Configure qué módulos puede acceder cada rol de usuario.
-        </Typography>
-
-        {/* Role Selection */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            Seleccionar Rol
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {getRoles().map((role) => {
-              const roleLabels: Record<string, string> = {
-                admin: 'Administrador',
-                manager: 'Gerente', 
-                cashier: 'Cajero',
-                salesperson: 'Vendedor'
-              };
-              return (
-                <Chip
-                  key={role}
-                  label={roleLabels[role] || role}
-                  onClick={() => setSelectedRole(role)}
-                  color={selectedRole === role ? 'primary' : 'default'}
-                  variant={selectedRole === role ? 'filled' : 'outlined'}
-                />
-              );
-            })}
-          </Box>
-        </Box>
-
-        {/* Permissions Grid */}
-        <Grid container spacing={2}>
-          {modules.map((module) => (
-            <Grid item xs={12} sm={6} md={4} key={module.id}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        {module.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                        {module.description}
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={rolePermissions[module.id] || false}
-                      onChange={(e) => handlePermissionChange(module.id, e.target.checked)}
-                      color="primary"
-                      size="small"
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Save Button */}
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={saving}
-            startIcon={saving ? <CircularProgress size={20} /> : <AdminIcon />}
-            sx={{ minWidth: 200 }}
-          >
-            {saving ? 'Guardando...' : 'Guardar Permisos'}
-          </Button>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-};
+interface Backup {
+  fileName: string;
+  size: string;
+  createdAt: string;
+  modifiedAt: string;
+  downloadUrl: string;
+}
 
 const Settings: NextPage = () => {
-  interface Backup {
-    filename: string;
-    createdAt: string;
-    size: number;
-  }
+  const router = useRouter();
+  const { user } = useAuth();
+  const { changePassword } = useUsers();
+  
+  // General Settings
+  const [darkMode, setDarkMode] = useState(false);
+  const [language, setLanguage] = useState('es');
+  const [businessName, setBusinessName] = useState('Healthynola');
+  const [address, setAddress] = useState('Calle 123 #45-67, Bogotá');
+  const [phone, setPhone] = useState('(+57) 300 123 4567');
+  const [email, setEmail] = useState('info@healthynola.com');
 
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }>({ open: false, message: '', severity: 'success' });
+  // Notifications
+  const [lowStockAlerts, setLowStockAlerts] = useState(true);
+  const [salesNotifications, setSalesNotifications] = useState(true);
+  const [expiryReminders, setExpiryReminders] = useState(false);
+  const [autoReports, setAutoReports] = useState(true);
+
+  // Security
+  const [twoFactorAuth, setTwoFactorAuth] = useState(false);
+  const [sessionTimeout, setSessionTimeout] = useState(30);
+  const [activityLog, setActivityLog] = useState(true);
+
+  // System
+  const [systemSounds, setSystemSounds] = useState(true);
+  const [offlineMode, setOfflineMode] = useState(false);
+
+  // Backups
   const [backups, setBackups] = useState<Backup[]>([]);
-  const [lastBackup, setLastBackup] = useState<Backup | null>(null);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  }>({ open: false, message: '', severity: 'info' });
 
-  // Cargar lista de respaldos al montar el componente
+  // Password Change Dialog
+  const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Load backups on mount
   useEffect(() => {
     loadBackups();
   }, []);
 
   const loadBackups = async () => {
     try {
+      setLoadingBackups(true);
       const response = await fetch('/api/backup/list');
       const data = await response.json();
-      
       if (data.success) {
-        setBackups(data.backups);
-        if (data.backups.length > 0) {
-          setLastBackup(data.backups[0]);
-        }
+        setBackups(data.backups || []);
       }
     } catch (error) {
-      console.error('Error al cargar respaldos:', error);
+      console.error('Error loading backups:', error);
+    } finally {
+      setLoadingBackups(false);
     }
   };
 
-  const createBackup = async () => {
-    setLoading(true);
+  const handleSaveSettings = () => {
+    console.log('Guardando configuración...');
+    // Aquí iría la lógica para guardar en el backend
+  };
+
+  const handleOpenPasswordDialog = () => {
+    setOpenPasswordDialog(true);
+  };
+
+  const handleClosePasswordDialog = () => {
+    setOpenPasswordDialog(false);
+    setPasswordForm({
+      newPassword: '',
+      confirmPassword: ''
+    });
+  };
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Nueva contraseña y confirmación son requeridas',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Las contraseñas no coinciden',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setSnackbar({
+        open: true,
+        message: 'La contraseña debe tener al menos 6 caracteres',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (!user?.id) {
+      setSnackbar({
+        open: true,
+        message: 'No se pudo identificar el usuario',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const result = await changePassword(user.id, {
+      newPassword: passwordForm.newPassword,
+      confirmPassword: passwordForm.confirmPassword
+    });
+
+    if (result.success) {
+      setSnackbar({
+        open: true,
+        message: 'Contraseña actualizada exitosamente',
+        severity: 'success'
+      });
+      handleClosePasswordDialog();
+    } else {
+      setSnackbar({
+        open: true,
+        message: result.message || 'Error al cambiar contraseña',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleManageUsers = () => {
+    router.push('/users');
+  };
+
+  const handleCreateBackup = async () => {
     try {
+      setCreatingBackup(true);
+      setSnackbar({ open: true, message: 'Creando respaldo...', severity: 'info' });
+
       const response = await fetch('/api/backup/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        method: 'POST'
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setSnackbar({
-          open: true,
-          message: `Respaldo creado exitosamente: ${data.backup.fileName} (${data.backup.size} MB)`,
-          severity: 'success'
+        setSnackbar({ 
+          open: true, 
+          message: `Respaldo creado exitosamente: ${data.backup.fileName}`, 
+          severity: 'success' 
         });
-        
-        // Recargar lista de respaldos
+        // Reload backups list
         await loadBackups();
-        
-        // Descargar automáticamente el respaldo
-        downloadBackup(data.backup.fileName);
       } else {
-        setSnackbar({
-          open: true,
-          message: `Error al crear respaldo: ${data.message}`,
-          severity: 'error'
+        setSnackbar({ 
+          open: true, 
+          message: data.message || 'Error al crear el respaldo', 
+          severity: 'error' 
         });
       }
     } catch (error) {
-      console.error('Error al crear respaldo:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error de conexión al crear respaldo',
-        severity: 'error'
+      console.error('Error creating backup:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Error de conexión al crear el respaldo', 
+        severity: 'error' 
       });
     } finally {
-      setLoading(false);
+      setCreatingBackup(false);
     }
   };
 
-  const downloadBackup = (fileName: string) => {
-    const link = document.createElement('a');
-    link.href = `/api/backup/download/${fileName}`;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadBackup = (fileName: string) => {
+    window.open(`/api/backup/download/${fileName}`, '_blank');
   };
 
-  const formatFileSize = (size: number) => {
-    return `${size} MB`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('es-CO', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleUpdateSystem = () => {
+    console.log('Actualizando sistema...');
+    // Aquí iría la lógica para actualizar
   };
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
+  };
+
+  const getLastBackupTime = () => {
+    if (backups.length === 0) return 'Nunca';
+    const lastBackup = backups[0];
+    try {
+      return formatDistanceToNow(new Date(lastBackup.createdAt), { 
+        addSuffix: true,
+        locale: es 
+      });
+    } catch {
+      return 'Hace algún tiempo';
+    }
   };
 
   return (
@@ -306,10 +268,9 @@ const Settings: NextPage = () => {
         <title>Configuración - Healthynola POS</title>
         <meta name="description" content="Configuración del sistema Healthynola POS" />
       </Head>
-
       <Layout title="Configuración del Sistema">
         <Grid container spacing={3}>
-          {/* General Settings */}
+          {/* Configuración General */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
@@ -317,50 +278,80 @@ const Settings: NextPage = () => {
                   <StoreIcon />
                   Configuración General
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <TextField
-                    label="Nombre del Negocio"
-                    defaultValue="Healthynola"
-                    fullWidth
-                  />
-                  <TextField
-                    label="Dirección"
-                    defaultValue="Calle 123 #45-67, Bogotá"
-                    fullWidth
-                  />
-                  <TextField
-                    label="Teléfono"
-                    defaultValue="(+57) 300 123 4567"
-                    fullWidth
-                  />
-                  <TextField
-                    label="Email"
-                    defaultValue="info@healthynola.com"
-                    type="email"
-                    fullWidth
-                  />
-                  
-                  <Divider />
-                  
+                <TextField
+                  fullWidth
+                  label="Nombre del Negocio"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  margin="normal"
+                  size="small"
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Dirección"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  margin="normal"
+                  size="small"
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Teléfono"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  margin="normal"
+                  size="small"
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  margin="normal"
+                  size="small"
+                  type="email"
+                />
+
+                <Box sx={{ mt: 3 }}>
                   <FormControlLabel
-                    control={<Switch defaultChecked />}
+                    control={<Switch checked={darkMode} onChange={(e) => setDarkMode(e.target.checked)} />}
                     label="Modo oscuro"
                   />
+                </Box>
+
+                <Box sx={{ mt: 1 }}>
                   <FormControlLabel
-                    control={<Switch defaultChecked />}
+                    control={<Switch checked={systemSounds} onChange={(e) => setSystemSounds(e.target.checked)} />}
                     label="Sonidos del sistema"
                   />
+                </Box>
+
+                <Box sx={{ mt: 1 }}>
                   <FormControlLabel
-                    control={<Switch />}
+                    control={<Switch checked={offlineMode} onChange={(e) => setOfflineMode(e.target.checked)} />}
                     label="Modo sin conexión"
                   />
                 </Box>
+
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  onClick={handleSaveSettings}
+                  sx={{ mt: 2 }}
+                  fullWidth
+                >
+                  Guardar Cambios
+                </Button>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Notifications */}
+          {/* Notificaciones */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
@@ -368,45 +359,64 @@ const Settings: NextPage = () => {
                   <NotificationsIcon />
                   Notificaciones
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="Alertas de stock bajo"
-                  />
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="Notificaciones de ventas"
-                  />
-                  <FormControlLabel
-                    control={<Switch />}
-                    label="Recordatorios de vencimiento"
-                  />
-                  <FormControlLabel
-                    control={<Switch />}
-                    label="Reportes automáticos"
-                  />
-                  
-                  <Divider sx={{ my: 2 }} />
-                  
-                  <TextField
-                    label="Stock mínimo para alertas"
-                    type="number"
-                    defaultValue="10"
-                    size="small"
-                  />
-                  <TextField
-                    label="Email para notificaciones"
-                    type="email"
-                    defaultValue="admin@healthynola.com"
-                    size="small"
-                  />
-                </Box>
+                <FormControlLabel
+                  control={<Switch checked={lowStockAlerts} onChange={(e) => setLowStockAlerts(e.target.checked)} />}
+                  label="Alertas de stock bajo"
+                />
+                
+                <FormControlLabel
+                  control={<Switch checked={salesNotifications} onChange={(e) => setSalesNotifications(e.target.checked)} />}
+                  label="Notificaciones de ventas"
+                  sx={{ display: 'block', mt: 1 }}
+                />
+                
+                <FormControlLabel
+                  control={<Switch checked={expiryReminders} onChange={(e) => setExpiryReminders(e.target.checked)} />}
+                  label="Recordatorios de vencimiento"
+                  sx={{ display: 'block', mt: 1 }}
+                />
+                
+                <FormControlLabel
+                  control={<Switch checked={autoReports} onChange={(e) => setAutoReports(e.target.checked)} />}
+                  label="Reportes automáticos"
+                  sx={{ display: 'block', mt: 1 }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Stock mínimo para alertas"
+                  type="number"
+                  value={10}
+                  margin="normal"
+                  size="small"
+                  sx={{ mt: 3 }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Email para notificaciones"
+                  value="admin@healthynola.com"
+                  margin="normal"
+                  size="small"
+                  type="email"
+                />
+
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  onClick={handleSaveSettings}
+                  sx={{ mt: 2 }}
+                  fullWidth
+                >
+                  Guardar Configuración
+                </Button>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Security */}
+          {/* Seguridad */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
@@ -414,27 +424,45 @@ const Settings: NextPage = () => {
                   <SecurityIcon />
                   Seguridad
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="Autenticación de dos factores"
-                  />
-                  <FormControlLabel
-                    control={<Switch defaultChecked />}
-                    label="Sesiones automáticas"
-                  />
-                  <FormControlLabel
-                    control={<Switch />}
-                    label="Log de actividades"
-                  />
-                  
-                  <Divider sx={{ my: 1 }} />
-                  
-                  <Button variant="outlined" size="small">
+                <FormControlLabel
+                  control={<Switch checked={twoFactorAuth} onChange={(e) => setTwoFactorAuth(e.target.checked)} />}
+                  label="Autenticación de dos factores"
+                />
+                
+                <FormControlLabel
+                  control={<Switch checked={activityLog} onChange={(e) => setActivityLog(e.target.checked)} />}
+                  label="Log de actividades"
+                  sx={{ display: 'block', mt: 1 }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Tiempo de sesión (minutos)"
+                  type="number"
+                  value={sessionTimeout}
+                  onChange={(e) => setSessionTimeout(parseInt(e.target.value))}
+                  margin="normal"
+                  size="small"
+                  sx={{ mt: 3 }}
+                />
+
+                <Box sx={{ mt: 3, display: 'flex', gap: 2, flexDirection: 'column' }}>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    startIcon={<LockIcon />}
+                    onClick={handleOpenPasswordDialog}
+                  >
                     Cambiar Contraseña
                   </Button>
-                  <Button variant="outlined" size="small">
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    startIcon={<PeopleIcon />}
+                    onClick={handleManageUsers}
+                  >
                     Gestionar Usuarios
                   </Button>
                 </Box>
@@ -442,7 +470,7 @@ const Settings: NextPage = () => {
             </Card>
           </Grid>
 
-          {/* System */}
+          {/* Sistema */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
@@ -450,65 +478,79 @@ const Settings: NextPage = () => {
                   <BackupIcon />
                   Sistema
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <UpdateIcon />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Versión del Sistema"
-                      secondary="v1.0.0 - Última actualización: 29/09/2024"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <BackupIcon />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Último Respaldo"
-                      secondary={
-                        lastBackup 
-                          ? `${formatDate(lastBackup.createdAt)} - ${formatFileSize(lastBackup.size)}`
-                          : "No hay respaldos disponibles"
-                      }
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText
-                      primary="Total de Respaldos"
-                      secondary={
-                        <Chip 
-                          label={`${backups.length} archivos`} 
-                          size="small" 
-                          color={backups.length > 0 ? "success" : "default"}
-                        />
-                      }
-                    />
-                  </ListItem>
-                </List>
-                
-                <Divider sx={{ my: 2 }} />
-                
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Último respaldo: {loadingBackups ? 'Cargando...' : getLastBackupTime()}
+                  </Typography>
                   <Button 
                     variant="contained" 
-                    size="small"
-                    onClick={createBackup}
-                    disabled={loading}
-                    startIcon={loading ? <CircularProgress size={16} /> : <BackupIcon />}
+                    onClick={handleCreateBackup}
+                    sx={{ mt: 2 }}
+                    fullWidth
+                    disabled={creatingBackup}
+                    startIcon={creatingBackup ? <CircularProgress size={20} /> : <BackupIcon />}
                   >
-                    {loading ? 'Creando...' : 'Crear Respaldo'}
+                    {creatingBackup ? 'Creando...' : 'Crear Respaldo'}
                   </Button>
+                  
+                  {backups.length > 0 && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="body2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        Respaldos disponibles ({backups.length})
+                      </Typography>
+                      <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                        {backups.slice(0, 5).map((backup) => (
+                          <ListItem
+                            key={backup.fileName}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              '&:hover': { bgcolor: 'action.hover' }
+                            }}
+                          >
+                            <ListItemText
+                              primary={backup.fileName}
+                              secondary={`${backup.size} MB - ${formatDistanceToNow(new Date(backup.createdAt), { addSuffix: true, locale: es })}`}
+                            />
+                            <Button
+                              size="small"
+                              startIcon={<DownloadIcon />}
+                              onClick={() => handleDownloadBackup(backup.fileName)}
+                            >
+                              Descargar
+                            </Button>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </>
+                  )}
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Versión del sistema: 1.0.0
+                  </Typography>
                   <Button 
-                    variant="outlined" 
-                    size="small"
-                    onClick={loadBackups}
+                    variant="contained" 
+                    color="secondary"
+                    onClick={handleUpdateSystem}
+                    sx={{ mt: 2 }}
+                    fullWidth
                   >
-                    Actualizar Lista
+                    Buscar Actualizaciones
                   </Button>
-                  <Button variant="outlined" size="small" color="warning">
-                    Limpiar Cache
+                </Box>
+
+                <Box sx={{ mt: 3 }}>
+                  <Button variant="outlined" fullWidth size="small">
+                    Limpiar Caché
                   </Button>
                 </Box>
               </CardContent>
@@ -516,58 +558,48 @@ const Settings: NextPage = () => {
           </Grid>
         </Grid>
 
-        {/* Backup History */}
-        {backups.length > 0 && (
-          <Grid container spacing={3} sx={{ mt: 2 }}>
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <BackupIcon />
-                    Historial de Respaldos
-                  </Typography>
-                  
-                  <List dense>
-                    {backups.slice(0, 5).map((backup, index) => (
-                      <ListItem key={backup.filename} divider={index < 4}>
-                        <ListItemIcon>
-                          <BackupIcon color="primary" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={backup.filename}
-                          secondary={`${formatDate(backup.createdAt)} - ${formatFileSize(backup.size)}`}
-                        />
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => downloadBackup(backup.filename)}
-                        >
-                          Descargar
-                        </Button>
-                      </ListItem>
-                    ))}
-                  </List>
-                  
-                  {backups.length > 5 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Y {backups.length - 5} respaldos más...
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Save Button */}
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-          <Button variant="contained" size="large" sx={{ minWidth: 200 }}>
-            Guardar Configuración
-          </Button>
-        </Box>
-
-        {/* Role Permissions Section */}
-        <RolePermissionsSection />
+        {/* Change Password Dialog */}
+        <Dialog open={openPasswordDialog} onClose={handleClosePasswordDialog} maxWidth="xs" fullWidth>
+          <DialogTitle>
+            Cambiar Contraseña
+            <IconButton
+              onClick={handleClosePasswordDialog}
+              sx={{ position: 'absolute', right: 8, top: 8 }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Cambiar contraseña para: <strong>{user?.name}</strong>
+              </Typography>
+              <TextField
+                fullWidth
+                label="Nueva Contraseña"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                required
+                helperText="Mínimo 6 caracteres"
+              />
+              <TextField
+                fullWidth
+                label="Confirmar Nueva Contraseña"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                required
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClosePasswordDialog}>Cancelar</Button>
+            <Button onClick={handleChangePassword} variant="contained" color="primary">
+              Cambiar Contraseña
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Snackbar for notifications */}
         <Snackbar

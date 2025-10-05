@@ -19,74 +19,7 @@ interface InventoryState {
 }
 
 const initialState: InventoryState = {
-  items: [
-    {
-      id: 1,
-      productId: 1,
-      productName: 'Granola Natural 500g',
-      warehouse: 'Principal',
-      currentStock: 25,
-      minStock: 10,
-      maxStock: 100,
-      lastUpdated: new Date().toISOString(),
-      notes: 'Stock principal para ventas'
-    },
-    {
-      id: 2,
-      productId: 1,
-      productName: 'Granola Natural 500g',
-      warehouse: 'DVP',
-      currentStock: 5,
-      minStock: 10,
-      maxStock: 50,
-      lastUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      notes: 'Stock bajo - necesita reposición'
-    },
-    {
-      id: 3,
-      productId: 2,
-      productName: 'Granola con Chocolate 500g',
-      warehouse: 'Principal',
-      currentStock: 30,
-      minStock: 15,
-      maxStock: 80,
-      lastUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      notes: 'Stock estable'
-    },
-    {
-      id: 4,
-      productId: 2,
-      productName: 'Granola con Chocolate 500g',
-      warehouse: 'MMM',
-      currentStock: 8,
-      minStock: 15,
-      maxStock: 40,
-      lastUpdated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      notes: 'Stock bajo'
-    },
-    {
-      id: 5,
-      productId: 3,
-      productName: 'Granola con Frutas 500g',
-      warehouse: 'Principal',
-      currentStock: 20,
-      minStock: 12,
-      maxStock: 60,
-      lastUpdated: new Date().toISOString(),
-      notes: 'Stock normal'
-    },
-    {
-      id: 6,
-      productId: 4,
-      productName: 'Mix de Frutos Secos 250g',
-      warehouse: 'MMM',
-      currentStock: 3,
-      minStock: 15,
-      maxStock: 30,
-      lastUpdated: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      notes: 'Stock crítico - urgente reposición'
-    }
-  ],
+  items: [],
   loading: false,
   error: null
 };
@@ -158,6 +91,9 @@ const inventorySlice = createSlice({
     },
     setError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
+    },
+    setInventory: (state, action: PayloadAction<InventoryItem[]>) => {
+      state.items = action.payload;
     }
   }
 });
@@ -169,6 +105,7 @@ export const {
   updateStock, 
   updateStockById,
   setLoading, 
-  setError 
+  setError,
+  setInventory
 } = inventorySlice.actions;
 export default inventorySlice.reducer;

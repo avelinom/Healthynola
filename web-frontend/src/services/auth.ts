@@ -31,12 +31,23 @@ export interface MeResponse {
   error?: string;
 }
 
+// Detectar la URL correcta del API según el hostname
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:3001/api`;
+    }
+  }
+  return 'http://localhost:3001/api';
+};
+
 /**
  * Login user with email and password
  */
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
-    const API_URL = 'https://healthynola-backend.onrender.com/api';
+    const API_URL = getApiUrl();
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -70,7 +81,7 @@ export const logout = async (): Promise<void> => {
     const token = getToken();
     
     if (token) {
-      const API_URL = 'https://healthynola-backend.onrender.com/api';
+      const API_URL = getApiUrl();
       await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         headers: {
@@ -98,7 +109,7 @@ export const getMe = async (): Promise<MeResponse> => {
   }
 
   try {
-    const API_URL = 'https://healthynola-backend.onrender.com/api';
+    const API_URL = getApiUrl();
     const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
       headers: {

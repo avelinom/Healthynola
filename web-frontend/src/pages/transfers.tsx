@@ -336,7 +336,7 @@ const Transfers: NextPage = () => {
               
               <Grid container spacing={2} sx={{ mt: 2 }}>
                 {activeWarehouses.map((warehouse) => (
-                  <Grid item xs={12} sm={4} key={warehouse.codigo}>
+                  <Grid item xs={12} sm={6} md={3} key={warehouse.codigo}>
                     <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
                       <Typography variant="h6" color="primary">
                         {warehouse.nombre}

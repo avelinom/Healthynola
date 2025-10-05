@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpiar Caché - Healthynola</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+        button {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #1b5e20;
+        }
+        button.secondary {
+            background: #1976d2;
+        }
+        button.secondary:hover {
+            background: #1565c0;
+        }
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpiador de Caché - Healthynola POS</h1>
+        
+        <div class="info">
+            <strong>¿Por qué usar esto?</strong>
+            <p>El sistema usa Redux Persist para guardar datos en localStorage. A veces estos datos quedan desactualizados y causan problemas.</p>
+            <p><strong>Síntomas comunes:</strong></p>
+            <ul>
+                <li>Números incorrectos en estadísticas</li>
+                <li>Datos viejos que no se actualizan</li>
+                <li>Inconsistencias entre móvil y web</li>
+            </ul>
+        </div>
+
+        <button onclick="clearAll()">
+            🗑️ Limpiar TODO el Caché
+        </button>
+
+        <button class="secondary" onclick="clearReduxOnly()">
+            🔄 Limpiar Solo Redux (mantener sesión)
+        </button>
+
+        <button class="secondary" onclick="goToLogin()">
+            ➡️ Ir al Login
+        </button>
+
+        <div id="success" class="success">
+            ✅ Caché limpiado exitosamente! Por favor inicia sesión de nuevo.
+        </div>
+    </div>
+
+    <script>
+        function clearAll() {
+            // Limpiar localStorage
+            localStorage.clear();
+            // Limpiar sessionStorage
+            sessionStorage.clear();
+            // Mostrar mensaje
+            document.getElementById('success').style.display = 'block';
+            // Redirigir después de 2 segundos
+            setTimeout(() => {
+                window.location.href = 'http://localhost:3000/login';
+            }, 2000);
+        }
+
+        function clearReduxOnly() {
+            // Guardar token
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            // Limpiar todo
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // Restaurar token y usuario
+            if (token) localStorage.setItem('token', token);
+            if (user) localStorage.setItem('user', user);
+            
+            // Mostrar mensaje
+            document.getElementById('success').style.display = 'block';
+            document.getElementById('success').textContent = '✅ Redux limpiado! Datos de sesión preservados. Recargando...';
+            
+            // Redirigir después de 2 segundos
+            setTimeout(() => {
+                window.location.href = 'http://localhost:3000/';
+            }, 2000);
+        }
+
+        function goToLogin() {
+            window.location.href = 'http://localhost:3000/login';
+        }
+
+        // Auto-detectar si estamos en móvil y ajustar URLs
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            // Estamos en móvil, ajustar URLs
+            const mobileHost = window.location.hostname;
+            document.querySelectorAll('button').forEach(btn => {
+                const onclick = btn.getAttribute('onclick');
+                if (onclick) {
+                    btn.setAttribute('onclick', onclick.replace(/localhost:3000/g, `${mobileHost}:3000`));
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+

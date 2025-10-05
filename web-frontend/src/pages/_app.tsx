@@ -49,7 +49,7 @@ function AppContent({ Component, pageProps }: { Component: any; pageProps: any }
   }, []);
   
   // Routes that don't require authentication
-  const publicRoutes = ['/', '/login'];
+  const publicRoutes = ['/', '/landing', '/login'];
   const isPublicRoute = publicRoutes.includes(router.pathname);
 
   // Show loading during SSR

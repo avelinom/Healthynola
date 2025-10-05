@@ -4,20 +4,33 @@ const db = require('../config/database');
 const { protect, authorize } = require('../middleware/auth');
 const logger = require('../utils/logger');
 
-// GET /api/permissions - Get all permissions for all roles
-router.get('/', protect, authorize('admin'), async (req, res, next) => {
+// GET /api/permissions - Get permissions (all roles for admin, own role for others)
+router.get('/', protect, async (req, res, next) => {
   try {
-    const permissions = await db('role_permissions')
+    const userRole = req.user.role;
+    
+    // Query builder
+    let query = db('role_permissions')
       .select('*')
       .orderBy('role', 'asc')
       .orderBy('module', 'asc');
+    
+    // If not admin, filter to only their role
+    if (userRole !== 'admin') {
+      query = query.where('role', userRole);
+    }
+    
+    const permissions = await query;
     
     // Group by role for easier frontend consumption
     const groupedPermissions = permissions.reduce((acc, perm) => {
       if (!acc[perm.role]) {
         acc[perm.role] = {};
       }
-      acc[perm.role][perm.module] = perm.has_access;
+      acc[perm.role][perm.module] = {
+        has_access: perm.has_access,
+        mobile_dashboard_visible: perm.mobile_dashboard_visible !== undefined ? perm.mobile_dashboard_visible : true
+      };
       return acc;
     }, {});
     
@@ -40,19 +53,25 @@ router.get('/modules', protect, authorize('admin'), async (req, res, next) => {
   try {
     const modules = [
       { id: 'dashboard', name: 'Dashboard', description: 'Panel principal' },
+      { id: 'estadisticas', name: 'Sales Overview', description: 'Métricas y estadísticas del sistema' },
       { id: 'sales', name: 'Ventas', description: 'Registro de ventas' },
       { id: 'customers', name: 'Clientes', description: 'Gestión de clientes' },
+      { id: 'products', name: 'Productos', description: 'Catálogo de productos' },
+      { id: 'inventory', name: 'Inventario', description: 'Control de inventario' },
       { id: 'transfers', name: 'Transferencias', description: 'Transferir stock' },
       { id: 'expenses', name: 'Gastos', description: 'Registro de gastos' },
       { id: 'reports', name: 'Reportes', description: 'Generación de reportes' },
-      { id: 'inventory', name: 'Inventario', description: 'Control de inventario' },
-      { id: 'products', name: 'Productos', description: 'Catálogo de productos' },
-      { id: 'production', name: 'Producción', description: 'Gestión de producción' },
+      { id: 'users', name: 'Usuarios', description: 'Gestión de usuarios' },
+      { id: 'roles', name: 'Roles y Permisos', description: 'Configuración de roles del sistema' },
+      { id: 'settings', name: 'Configuración', description: 'Configuración del sistema' },
+      { id: 'categories', name: 'Categorías', description: 'Gestión de categorías' },
+      { id: 'warehouses', name: 'Almacenes', description: 'Gestión de almacenes' },
       { id: 'raw-materials', name: 'Materia Prima', description: 'Gestión de materia prima' },
       { id: 'recipes', name: 'Recetas', description: 'Recetas de producción' },
       { id: 'batches', name: 'Lotes', description: 'Gestión de lotes' },
-      { id: 'users', name: 'Usuarios', description: 'Gestión de usuarios' },
-      { id: 'settings', name: 'Configuración', description: 'Configuración del sistema' }
+      { id: 'production', name: 'Producción', description: 'Gestión de producción' },
+      { id: 'packaging-types', name: 'Tipos de Empaque', description: 'Gestión de tipos de empaque' },
+      { id: 'consignment-visits', name: 'Visitas a Consignatarios', description: 'Gestión de visitas a consignatarios' }
     ];
     
     res.json({
@@ -81,12 +100,12 @@ router.put('/', protect, authorize('admin'), async (req, res, next) => {
       });
     }
     
-    // Validate role
-    const validRoles = ['admin', 'manager', 'cashier', 'salesperson'];
-    if (!validRoles.includes(role)) {
+    // Validate role exists in roles table
+    const roleExists = await db('roles').where({ name: role }).first();
+    if (!roleExists) {
       return res.status(400).json({
         success: false,
-        message: 'Rol inválido'
+        message: 'Rol inválido o no existe'
       });
     }
     
@@ -96,13 +115,22 @@ router.put('/', protect, authorize('admin'), async (req, res, next) => {
       await trx('role_permissions').where('role', role).del();
       
       // Insert new permissions
-      const permissionEntries = Object.entries(permissions).map(([module, hasAccess]) => ({
-        role,
-        module,
-        has_access: Boolean(hasAccess),
-        created_at: new Date(),
-        updated_at: new Date()
-      }));
+      const permissionEntries = Object.entries(permissions).map(([module, permData]) => {
+        // Support both old format (boolean) and new format (object with has_access and mobile_dashboard_visible)
+        const hasAccess = typeof permData === 'boolean' ? permData : (permData.has_access || false);
+        const mobileDashboardVisible = typeof permData === 'object' ? 
+          (permData.mobile_dashboard_visible !== undefined ? permData.mobile_dashboard_visible : true) : 
+          true;
+        
+        return {
+          role,
+          module,
+          has_access: Boolean(hasAccess),
+          mobile_dashboard_visible: Boolean(mobileDashboardVisible),
+          created_at: new Date(),
+          updated_at: new Date()
+        };
+      });
       
       if (permissionEntries.length > 0) {
         await trx('role_permissions').insert(permissionEntries);

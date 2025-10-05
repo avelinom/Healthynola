@@ -9,6 +9,7 @@ import {
   setError,
   RawMaterial 
 } from '@/store/slices/rawMaterialsSlice';
+import { apiService } from '@/services/api';
 
 export const useRawMaterials = () => {
   const dispatch: AppDispatch = useDispatch();
@@ -18,13 +19,12 @@ export const useRawMaterials = () => {
     dispatch(setLoading(true));
     try {
       const params = activo !== undefined ? `?activo=${activo}` : '';
-      const response = await fetch(`/api/raw-materials${params}`);
-      const data = await response.json();
+      const response = await apiService.getRawMaterials(params);
 
-      if (data.success) {
-        dispatch(setRawMaterials(data.data));
+      if (response.success) {
+        dispatch(setRawMaterials(response.data));
       } else {
-        dispatch(setError(data.message));
+        dispatch(setError(response.message || 'Error al cargar materias primas'));
       }
     } catch (err: any) {
       dispatch(setError(err.message));

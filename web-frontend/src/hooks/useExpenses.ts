@@ -1,4 +1,6 @@
-import { useDispatch } from 'react-redux';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/store';
 import {
   setExpenses,
   addExpense as addExpenseAction,
@@ -11,6 +13,12 @@ import {
 
 export const useExpenses = () => {
   const dispatch = useDispatch();
+  const { expenses, loading, error } = useSelector((state: RootState) => state.expenses);
+
+  // Cargar gastos automáticamente al montar el componente
+  useEffect(() => {
+    fetchExpenses();
+  }, []); // Empty dependency array to run only once
 
   const fetchExpenses = async (filters?: { startDate?: string; endDate?: string; categoria?: string }) => {
     try {
@@ -148,6 +156,9 @@ export const useExpenses = () => {
   };
 
   return {
+    expenses,
+    loading,
+    error,
     fetchExpenses,
     createExpense,
     updateExpense,

@@ -1,16 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NextPage } from 'next';
 import Head from 'next/head';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/store';
-import {
-  addUser,
-  updateUser,
-  deleteUser,
-  toggleUserStatus,
-  User
-} from '@/store/slices/usersSlice';
-import { addActivity } from '@/store/slices/activitySlice';
+import { useUsers } from '@/hooks/useUsers';
+import { useWarehousesSimple } from '@/hooks/useWarehousesSimple';
 import {
   Card,
   CardContent,
@@ -38,7 +30,9 @@ import {
   Grid,
   Switch,
   FormControlLabel,
-  IconButton
+  IconButton,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   People as UsersIcon,
@@ -50,27 +44,51 @@ import {
   AdminPanelSettings as AdminIcon,
   ManageAccounts as ManagerIcon,
   Person as PersonIcon,
-  PointOfSale as CashierIcon
+  PointOfSale as CashierIcon,
+  Lock as LockIcon
 } from '@mui/icons-material';
 import Layout from '@/components/Layout';
 
 const Users: NextPage = () => {
-  const dispatch = useDispatch();
-  const users = useSelector((state: RootState) => state.users.users);
+  const { users, loading, error, fetchUsers, createUser, updateUser, changePassword, toggleUserStatus, deleteUser } = useUsers();
+  const { activeWarehouses, fetchWarehouses } = useWarehousesSimple();
   
   const [openDialog, setOpenDialog] = useState(false);
+  const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [changingPasswordUser, setChangingPasswordUser] = useState<any | null>(null);
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning'
+  });
   
   // Form state for new/edit user
   const [userForm, setUserForm] = useState({
     name: '',
     email: '',
+    password: '',
+    confirmPassword: '',
     role: 'salesperson' as 'admin' | 'manager' | 'cashier' | 'salesperson',
     warehouse: 'Principal',
     phone: '',
     active: true
   });
+
+  // Password form state
+  const [passwordForm, setPasswordForm] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Load users and warehouses on mount
+  useEffect(() => {
+    fetchUsers();
+    fetchWarehouses();
+  }, []);
 
   const handleOpenDialog = () => {
     setOpenDialog(true);
@@ -83,6 +101,8 @@ const Users: NextPage = () => {
     setUserForm({
       name: '',
       email: '',
+      password: '',
+      confirmPassword: '',
       role: 'salesperson',
       warehouse: 'Principal',
       phone: '',
@@ -90,386 +110,582 @@ const Users: NextPage = () => {
     });
   };
 
-  const handleEditUser = (user: User) => {
+  const handleEditUser = (user: any) => {
     setEditingUser(user);
     setUserForm({
       name: user.name,
       email: user.email,
+      password: '', // Don't show password on edit
+      confirmPassword: '',
       role: user.role,
-      warehouse: user.warehouse,
+      warehouse: user.warehouse || 'Principal',
       phone: user.phone || '',
       active: user.active
     });
     setOpenDialog(true);
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setUserForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleOpenPasswordDialog = (user: any) => {
+    setChangingPasswordUser(user);
+    setPasswordForm({
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setOpenPasswordDialog(true);
   };
 
-  const handleSaveUser = () => {
-    if (!userForm.name.trim() || !userForm.email.trim()) {
-      alert('El nombre y email del usuario son obligatorios');
+  const handleClosePasswordDialog = () => {
+    setOpenPasswordDialog(false);
+    setChangingPasswordUser(null);
+    setPasswordForm({
+      newPassword: '',
+      confirmPassword: ''
+    });
+  };
+
+  const handleSaveUser = async () => {
+    // Validation
+    if (!userForm.name || !userForm.email) {
+      setSnackbar({
+        open: true,
+        message: 'Nombre y email son requeridos',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (!editingUser && (!userForm.password || !userForm.confirmPassword)) {
+      setSnackbar({
+        open: true,
+        message: 'Contraseña y confirmación son requeridas para nuevos usuarios',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (!editingUser && userForm.password !== userForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Las contraseñas no coinciden',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (!editingUser && userForm.password.length < 6) {
+      setSnackbar({
+        open: true,
+        message: 'La contraseña debe tener al menos 6 caracteres',
+        severity: 'error'
+      });
       return;
     }
 
     if (editingUser) {
-      // Update existing user
-      dispatch(updateUser({
-        ...editingUser,
-        ...userForm,
-        name: userForm.name.trim(),
-        email: userForm.email.trim(),
-        phone: userForm.phone.trim() || undefined
-      }));
-      
-      // Add activity
-      dispatch(addActivity({
-        type: 'user',
-        action: 'Usuario actualizado',
-        details: `${userForm.name} - ${userForm.role}`,
-        userId: '1',
-        userName: 'Admin'
-      }));
-      
-      alert(`Usuario "${userForm.name}" actualizado exitosamente!`);
-    } else {
-      // Create new user
-      const userData = {
-        name: userForm.name.trim(),
-        email: userForm.email.trim(),
+      // Update existing user (without password)
+      const result = await updateUser(editingUser.id, {
+        name: userForm.name,
+        email: userForm.email,
         role: userForm.role,
         warehouse: userForm.warehouse,
-        phone: userForm.phone.trim() || undefined,
+        phone: userForm.phone,
         active: userForm.active
-      };
-      dispatch(addUser(userData));
-      
-      // Add activity
-      dispatch(addActivity({
-        type: 'user',
-        action: 'Usuario registrado',
-        details: `${userData.name} - ${userData.role}`,
-        userId: '1',
-        userName: 'Admin'
-      }));
-      
-      alert(`Usuario "${userData.name}" creado exitosamente!`);
+      });
+
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: 'Usuario actualizado exitosamente',
+          severity: 'success'
+        });
+        handleCloseDialog();
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Error al actualizar usuario',
+          severity: 'error'
+        });
+      }
+    } else {
+      // Create new user (with password)
+      const result = await createUser({
+        name: userForm.name,
+        email: userForm.email,
+        password: userForm.password,
+        role: userForm.role,
+        warehouse: userForm.warehouse,
+        phone: userForm.phone,
+        active: userForm.active
+      });
+
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: 'Usuario creado exitosamente',
+          severity: 'success'
+        });
+        handleCloseDialog();
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Error al crear usuario',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Nueva contraseña y confirmación son requeridas',
+        severity: 'error'
+      });
+      return;
     }
 
-    handleCloseDialog();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Las contraseñas no coinciden',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setSnackbar({
+        open: true,
+        message: 'La contraseña debe tener al menos 6 caracteres',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (changingPasswordUser) {
+      const result = await changePassword(changingPasswordUser.id, {
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword
+      });
+
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: 'Contraseña actualizada exitosamente',
+          severity: 'success'
+        });
+        handleClosePasswordDialog();
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Error al cambiar contraseña',
+          severity: 'error'
+        });
+      }
+    }
   };
 
-  const handleToggleUserStatus = (userId: number) => {
-    dispatch(toggleUserStatus(userId));
+  const handleToggleStatus = async (user: any) => {
+    const result = await toggleUserStatus(user.id);
+    
+    if (result.success) {
+      setSnackbar({
+        open: true,
+        message: `Usuario ${!user.active ? 'activado' : 'desactivado'} exitosamente`,
+        severity: 'success'
+      });
+    } else {
+      setSnackbar({
+        open: true,
+        message: result.message || 'Error al cambiar estado del usuario',
+        severity: 'error'
+      });
+    }
   };
 
-  const handleDeleteUser = (userId: number, userName: string) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`)) {
-      dispatch(deleteUser(userId));
+  const handleDeleteUser = async (user: any) => {
+    if (confirm(`¿Está seguro de eliminar al usuario ${user.name}?`)) {
+      const result = await deleteUser(user.id);
       
-      // Add activity
-      dispatch(addActivity({
-        type: 'user',
-        action: 'Usuario eliminado',
-        details: userName,
-        userId: '1',
-        userName: 'Admin'
-      }));
-      
-      alert(`Usuario "${userName}" eliminado exitosamente.`);
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: 'Usuario eliminado exitosamente',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: result.message || 'Error al eliminar usuario',
+          severity: 'error'
+        });
+      }
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <AdminIcon sx={{ fontSize: 18, mr: 0.5 }} />;
+      case 'manager':
+        return <ManagerIcon sx={{ fontSize: 18, mr: 0.5 }} />;
+      case 'cashier':
+        return <CashierIcon sx={{ fontSize: 18, mr: 0.5 }} />;
+      default:
+        return <PersonIcon sx={{ fontSize: 18, mr: 0.5 }} />;
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrador';
+      case 'manager':
+        return 'Gerente';
+      case 'cashier':
+        return 'Cajero';
+      case 'salesperson':
+        return 'Vendedor';
+      default:
+        return role;
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'error';
+      case 'manager':
+        return 'warning';
+      case 'cashier':
+        return 'info';
+      default:
+        return 'default';
     }
   };
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.warehouse.toLowerCase().includes(searchTerm.toLowerCase())
+    getRoleLabel(user.role).toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'admin': return 'error';
-      case 'manager': return 'warning';
-      case 'cashier': return 'info';
-      case 'salesperson': return 'primary';
-      default: return 'default';
-    }
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return <AdminIcon fontSize="small" />;
-      case 'manager': return <ManagerIcon fontSize="small" />;
-      case 'cashier': return <CashierIcon fontSize="small" />;
-      case 'salesperson': return <PersonIcon fontSize="small" />;
-      default: return <PersonIcon fontSize="small" />;
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'admin': return 'Administrador';
-      case 'manager': return 'Gerente';
-      case 'cashier': return 'Cajero';
-      case 'salesperson': return 'Vendedor';
-      default: return role;
-    }
-  };
 
   return (
     <>
       <Head>
-        <title>Usuarios - Healthynola POS</title>
+        <title>Gestión de Usuarios - Healthynola POS</title>
         <meta name="description" content="Gestión de usuarios del sistema Healthynola POS" />
       </Head>
-
       <Layout title="Gestión de Usuarios">
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <UsersIcon />
-                Usuarios del Sistema
-              </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  size="small"
-                  placeholder="Buscar usuario..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <Button 
-                  variant="contained" 
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenDialog}
-                >
-                  Nuevo Usuario
-                </Button>
-              </Box>
-            </Box>
+        <Box sx={{ py: 3 }}>
+          {/* Header */}
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <UsersIcon sx={{ fontSize: 40 }} />
+              Usuarios del Sistema
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenDialog}
+            >
+              Nuevo Usuario
+            </Button>
+          </Box>
 
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Usuario</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell align="center">Rol</TableCell>
-                    <TableCell align="center">Almacén</TableCell>
-                    <TableCell align="center">Estado</TableCell>
-                    <TableCell align="center">Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell component="th" scope="row">
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {user.name}
-                          </Typography>
-                          {user.phone && (
-                            <Typography variant="caption" color="text.secondary">
-                              {user.phone}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {user.email}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          icon={getRoleIcon(user.role)}
-                          label={getRoleLabel(user.role)} 
-                          color={getRoleColor(user.role) as any}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {user.warehouse}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={user.active}
-                              onChange={() => handleToggleUserStatus(user.id)}
+          {/* Search Bar */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Buscar usuarios..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Users Table */}
+          <Card>
+            <CardContent>
+              <TableContainer component={Paper} elevation={0}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Nombre</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Rol</TableCell>
+                      <TableCell>Almacén</TableCell>
+                      <TableCell>Teléfono</TableCell>
+                      <TableCell>Estado</TableCell>
+                      <TableCell align="right">Acciones</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          Cargando usuarios...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          No se encontraron usuarios
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <Chip
+                              icon={getRoleIcon(user.role)}
+                              label={getRoleLabel(user.role)}
+                              color={getRoleColor(user.role) as any}
                               size="small"
                             />
-                          }
-                          label=""
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditUser(user)}
-                          color="primary"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteUser(user.id, user.name)}
-                          color="error"
-                          disabled={user.role === 'admin'} // No permitir eliminar administradores
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
+                          </TableCell>
+                          <TableCell>{user.warehouse || 'Principal'}</TableCell>
+                          <TableCell>{user.phone || '-'}</TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={user.active}
+                              onChange={() => handleToggleStatus(user)}
+                              color="primary"
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditUser(user)}
+                              color="primary"
+                              title="Editar usuario"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenPasswordDialog(user)}
+                              color="secondary"
+                              title="Cambiar contraseña"
+                            >
+                              <LockIcon />
+                            </IconButton>
+                            {user.role !== 'admin' && (
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteUser(user)}
+                                color="error"
+                                title="Eliminar usuario"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
 
-        {/* New/Edit User Dialog */}
-        <Dialog 
-          open={openDialog} 
-          onClose={handleCloseDialog}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
+          {/* Create/Edit User Dialog */}
+          <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+            <DialogTitle>
               {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
-            </Typography>
-            <IconButton onClick={handleCloseDialog}>
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Nombre Completo *"
-                  fullWidth
-                  value={userForm.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Ej: María García"
-                />
+              <IconButton
+                onClick={handleCloseDialog}
+                sx={{ position: 'absolute', right: 8, top: 8 }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Nombre Completo"
+                    value={userForm.name}
+                    onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    required
+                  />
+                </Grid>
+                {!editingUser && (
+                  <>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Contraseña"
+                        type="password"
+                        value={userForm.password}
+                        onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                        required
+                        helperText="Mínimo 6 caracteres"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Confirmar Contraseña"
+                        type="password"
+                        value={userForm.confirmPassword}
+                        onChange={(e) => setUserForm({ ...userForm, confirmPassword: e.target.value })}
+                        required
+                      />
+                    </Grid>
+                  </>
+                )}
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Rol</InputLabel>
+                    <Select
+                      value={userForm.role}
+                      onChange={(e) => setUserForm({ ...userForm, role: e.target.value as any })}
+                      label="Rol"
+                    >
+                      <MenuItem value="salesperson">Vendedor</MenuItem>
+                      <MenuItem value="cashier">Cajero</MenuItem>
+                      <MenuItem value="manager">Gerente</MenuItem>
+                      <MenuItem value="admin">Administrador</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Almacén</InputLabel>
+                    <Select
+                      value={userForm.warehouse}
+                      onChange={(e) => setUserForm({ ...userForm, warehouse: e.target.value })}
+                      label="Almacén"
+                    >
+                      {activeWarehouses.map((warehouse) => (
+                        <MenuItem key={warehouse.codigo} value={warehouse.nombre}>
+                          {warehouse.nombre}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Teléfono"
+                    value={userForm.phone}
+                    onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={userForm.active}
+                        onChange={(e) => setUserForm({ ...userForm, active: e.target.checked })}
+                      />
+                    }
+                    label="Usuario Activo"
+                  />
+                </Grid>
               </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  label="Email *"
-                  type="email"
-                  fullWidth
-                  value={userForm.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="usuario@healthynola.com"
-                />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseDialog}>Cancelar</Button>
+              <Button onClick={handleSaveUser} variant="contained" color="primary">
+                {editingUser ? 'Actualizar' : 'Crear'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Change Password Dialog */}
+          <Dialog open={openPasswordDialog} onClose={handleClosePasswordDialog} maxWidth="xs" fullWidth>
+            <DialogTitle>
+              Cambiar Contraseña
+              <IconButton
+                onClick={handleClosePasswordDialog}
+                sx={{ position: 'absolute', right: 8, top: 8 }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Cambiar contraseña para: <strong>{changingPasswordUser?.name}</strong>
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Nueva Contraseña"
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                    required
+                    helperText="Mínimo 6 caracteres"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Confirmar Nueva Contraseña"
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                    required
+                  />
+                </Grid>
               </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Rol</InputLabel>
-                  <Select
-                    value={userForm.role}
-                    label="Rol"
-                    onChange={(e) => handleInputChange('role', e.target.value)}
-                  >
-                    <MenuItem value="salesperson">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PersonIcon fontSize="small" />
-                        Vendedor
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="cashier">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CashierIcon fontSize="small" />
-                        Cajero
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="manager">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ManagerIcon fontSize="small" />
-                        Gerente
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="admin">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <AdminIcon fontSize="small" />
-                        Administrador
-                      </Box>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Almacén</InputLabel>
-                  <Select
-                    value={userForm.warehouse}
-                    label="Almacén"
-                    onChange={(e) => handleInputChange('warehouse', e.target.value)}
-                  >
-                    <MenuItem value="Principal">Principal</MenuItem>
-                    <MenuItem value="MMM">MMM</MenuItem>
-                    <MenuItem value="DVP">DVP</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  label="Teléfono"
-                  fullWidth
-                  value={userForm.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  placeholder="+57 300 123 4567"
-                />
-              </Grid>
-              
-              <Grid item xs={12}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={userForm.active}
-                      onChange={(e) => handleInputChange('active', e.target.checked)}
-                    />
-                  }
-                  label="Usuario Activo"
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={handleCloseDialog} variant="outlined">
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSaveUser} 
-              variant="contained"
-              disabled={!userForm.name.trim() || !userForm.email.trim()}
-            >
-              {editingUser ? 'Actualizar' : 'Crear'} Usuario
-            </Button>
-          </DialogActions>
-        </Dialog>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleClosePasswordDialog}>Cancelar</Button>
+              <Button onClick={handleChangePassword} variant="contained" color="primary">
+                Cambiar Contraseña
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* Snackbar for notifications */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Box>
       </Layout>
     </>
   );

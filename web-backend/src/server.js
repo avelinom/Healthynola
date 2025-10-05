@@ -27,9 +27,12 @@ const rawMaterialsRoutes = require('./routes/rawMaterials');
 const recipesRoutes = require('./routes/recipes');
 const batchesRoutes = require('./routes/batches');
 const permissionsRoutes = require('./routes/permissions');
+const rolesRoutes = require('./routes/roles');
 const categoriesRoutes = require('./routes/categories');
 const packagingTypesRoutes = require('./routes/packagingTypes');
 const warehousesRoutes = require('./routes/warehouses');
+const consignmentsRoutes = require('./routes/consignments');
+const usersRoutes = require('./routes/users');
 
 const app = express();
 const server = createServer(app);
@@ -104,9 +107,12 @@ app.use('/api/raw-materials', rawMaterialsRoutes);
 app.use('/api/recipes', recipesRoutes);
 app.use('/api/batches', batchesRoutes);
 app.use('/api/permissions', permissionsRoutes);
+app.use('/api/roles', rolesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/packaging-types', packagingTypesRoutes);
 app.use('/api/warehouses', warehousesRoutes);
+app.use('/api/consignments', consignmentsRoutes);
+app.use('/api/users', usersRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -131,9 +137,8 @@ app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 3001;
-const HOST = process.env.HOST || '0.0.0.0'; // Listen on all interfaces
-server.listen(PORT, HOST, () => {
-  logger.info(`🚀 Healthynola POS Backend running on ${HOST}:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  logger.info(`🚀 Healthynola POS Backend running on 0.0.0.0:${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
   logger.info(`📱 Mobile access: http://192.168.68.104:${PORT}`);

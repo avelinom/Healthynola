@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import { setProducts, setLoading, setError, addProduct, updateProduct, deleteProduct } from '@/store/slices/productsSlice';

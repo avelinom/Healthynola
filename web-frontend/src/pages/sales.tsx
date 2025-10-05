@@ -7,6 +7,9 @@ import { useProducts } from '@/hooks/useProducts';
 import { useCustomers } from '@/hooks/useCustomers';
 import { usePackagingTypes } from '@/hooks/usePackagingTypes';
 import { useWarehousesSimple as useWarehouses } from '@/hooks/useWarehousesSimple';
+import { useConsignments } from '@/hooks/useConsignments';
+import { useAuth } from '@/hooks/useAuth';
+import NextVisitModal from '@/components/NextVisitModal';
 import {
   Grid,
   Card,
@@ -49,10 +52,12 @@ interface SaleItem {
 
 const Sales: NextPage = () => {
   const dispatch = useDispatch();
-  const { activePackagingTypes, fetchPackagingTypes } = usePackagingTypes();
-  const { activeWarehouses } = useWarehouses();
-  const [products, setProducts] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
+  const { products, loadProducts } = useProducts();
+  const { customers, loadCustomers } = useCustomers();
+  const { packagingTypes: activePackagingTypes, fetchPackagingTypes } = usePackagingTypes();
+  const { activeWarehouses, fetchWarehouses } = useWarehouses();
+  const { createConsignment } = useConsignments();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -64,26 +69,23 @@ const Sales: NextPage = () => {
   const [warehouse, setWarehouse] = useState('');
   const [notes, setNotes] = useState('');
   const [isClient, setIsClient] = useState(false);
+  
+  // Estados para modal de consignación
+  const [showNextVisitModal, setShowNextVisitModal] = useState(false);
+  const [pendingConsignment, setPendingConsignment] = useState<any>(null);
 
-  // Load data directly from API
+  // Load data using hooks
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [productsRes, customersRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/customers')
+        await Promise.all([
+          loadProducts(),
+          loadCustomers(),
+          fetchPackagingTypes(),
+          fetchWarehouses()
         ]);
-        
-        const productsData = await productsRes.json();
-        const customersData = await customersRes.json();
-        
-        setProducts(productsData.data || []);
-        setCustomers(customersData.data || []);
         setIsClient(true);
-        
-        // Load packaging types
-        fetchPackagingTypes();
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -189,6 +191,10 @@ const Sales: NextPage = () => {
       const selectedCustomer = activeCustomers.find(c => c.name === customer);
       
       // 3. Guardar cada item como una venta en la base de datos y descontar inventario
+      let lastSaleData: any = null;
+      let lastProduct: any = null;
+      let lastItem: any = null;
+      
       for (const item of saleItems) {
         const product = activeProducts.find(p => p.nombre === item.product);
         
@@ -212,6 +218,15 @@ const Sales: NextPage = () => {
         }
 
         // 3.2. Guardar venta en la base de datos
+        // Mapear código de almacén a nombre para el backend
+        const warehouseMapping: { [key: string]: string } = {
+          'AP': 'Principal',
+          'MMM': 'MMM',
+          'DVP': 'DVP',
+          'MdMM': 'MdMM'
+        };
+        const warehouseName = warehouseMapping[warehouse] || warehouse;
+        
         const saleResponse = await fetch('/api/sales', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -223,8 +238,8 @@ const Sales: NextPage = () => {
             subtotal: item.subtotal,
             total: item.subtotal, // Sin descuento por ahora
             paymentMethod: paymentMethod,
-            salesperson: 'Usuario', // TODO: Get from auth
-            warehouse: warehouse,
+            salesperson: user?.name || 'Usuario',
+            warehouse: warehouseName,
             tipoEmpaque: tipoEmpaque || null, // Packaging type
             notes: notes || null
           })
@@ -236,6 +251,11 @@ const Sales: NextPage = () => {
           alert(`Error al registrar venta de ${item.product}: ${saleData.message}`);
           return;
         }
+
+        // Guardar datos de la última venta para consignación
+        lastSaleData = saleData;
+        lastProduct = product;
+        lastItem = item;
 
         // 3.3. Save to Redux for immediate UI update
         dispatch(addSale({
@@ -252,25 +272,99 @@ const Sales: NextPage = () => {
           discount: 0,
           finalAmount: item.subtotal,
           paymentMethod: paymentMethod as 'cash' | 'card' | 'transfer',
-          salespersonId: 1,
-          salespersonName: 'Usuario',
+          salespersonId: user?.id || 1,
+          salespersonName: user?.name || 'Usuario',
           warehouse: warehouse as 'Principal' | 'MMM' | 'DVP',
           notes
         }));
       }
       
-      alert(`${saleItems.length} venta(s) registrada(s) exitosamente!\nInventario actualizado.\nTotal: ${formatCurrency(getTotalAmount())}`);
+      // 4. Verificar si el cliente es consignatario
+      const isConsignatario = selectedCustomer?.type === 'Consignación';
       
-      // 6. Clear form
+      if (isConsignatario && lastSaleData && lastProduct && lastItem) {
+        // Mostrar modal para programar próxima visita
+        setPendingConsignment({
+          saleId: lastSaleData.data.id,
+          clientId: selectedCustomer.id,
+          clientName: customer,
+          productId: lastProduct.id,
+          productName: lastItem.product,
+          quantity: lastItem.quantity,
+          deliveryDate: new Date().toISOString().split('T')[0]
+        });
+        setShowNextVisitModal(true);
+      } else {
+        // Cliente regular - mostrar confirmación normal
+        alert(`${saleItems.length} venta(s) registrada(s) exitosamente!\nInventario actualizado.\nTotal: ${formatCurrency(getTotalAmount())}`);
+        
+        // Clear form
+        setSaleItems([]);
+        setCustomer('');
+        setPaymentMethod('');
+        setWarehouse('');
+        setNotes('');
+      }
+    } catch (error) {
+      console.error('Error processing sale:', error);
+      alert('Error al procesar la venta. Por favor intente nuevamente.');
+    }
+  };
+
+  // Función para manejar la confirmación de próxima visita
+  const handleNextVisitConfirm = async (nextVisitDate: string) => {
+    if (!pendingConsignment) return;
+
+    try {
+      // Crear consignación
+      const consignmentResult = await createConsignment({
+        sale_id: pendingConsignment.saleId,
+        client_id: pendingConsignment.clientId,
+        product_id: pendingConsignment.productId,
+        quantity: pendingConsignment.quantity,
+        delivery_date: pendingConsignment.deliveryDate,
+        payment_status: 'pending',
+        amount_paid: 0,
+        next_visit_date: nextVisitDate,
+        notes: 'Consignación creada automáticamente'
+      });
+
+      if (consignmentResult.success) {
+        // Mostrar mensaje de confirmación
+        alert(
+          `Venta a consignación exitosa!\n` +
+          `Fecha de tu próxima visita: ${new Date(nextVisitDate).toLocaleDateString('es-MX')}\n` +
+          `Se te enviará una alerta vía WhatsApp para recordarte esta cita.\n` +
+          `Si quieres cambiar tu cita ve al módulo de consignaciones y selecciona una nueva fecha.`
+        );
+      } else {
+        alert(`Error al crear consignación: ${consignmentResult.error}`);
+      }
+    } catch (error) {
+      console.error('Error creating consignment:', error);
+      alert('Error al crear consignación');
+    } finally {
+      // Cerrar modal y limpiar formulario
+      setShowNextVisitModal(false);
+      setPendingConsignment(null);
       setSaleItems([]);
       setCustomer('');
       setPaymentMethod('');
       setWarehouse('');
       setNotes('');
-    } catch (error) {
-      console.error('Error processing sale:', error);
-      alert('Error al procesar la venta. Por favor intente nuevamente.');
     }
+  };
+
+  // Función para cancelar el modal
+  const handleNextVisitCancel = () => {
+    setShowNextVisitModal(false);
+    setPendingConsignment(null);
+    // Limpiar formulario también
+    setSaleItems([]);
+    setCustomer('');
+    setPaymentMethod('');
+    setWarehouse('');
+    setNotes('');
   };
 
   return (
@@ -506,6 +600,16 @@ const Sales: NextPage = () => {
         </Grid>
         )}
       </Layout>
+
+      {/* Modal para próxima visita de consignación */}
+      <NextVisitModal
+        open={showNextVisitModal}
+        onClose={handleNextVisitCancel}
+        onConfirm={handleNextVisitConfirm}
+        clientName={pendingConsignment?.clientName || ''}
+        productName={pendingConsignment?.productName || ''}
+        quantity={pendingConsignment?.quantity || 0}
+      />
     </>
   );
 };

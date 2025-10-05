@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
+import { apiService } from '@/services/api';
 import { 
   setRecipes, 
   addRecipe, 
@@ -19,13 +20,12 @@ export const useRecipes = () => {
     dispatch(setLoading(true));
     try {
       const params = activo !== undefined ? `?activo=${activo}` : '';
-      const response = await fetch(`/api/recipes${params}`);
-      const data = await response.json();
+      const response = await apiService.getRecipes(params);
 
-      if (data.success) {
-        dispatch(setRecipes(data.data));
+      if (response.success) {
+        dispatch(setRecipes(response.data));
       } else {
-        dispatch(setError(data.message));
+        dispatch(setError(response.message || 'Error al cargar recetas'));
       }
     } catch (err: any) {
       dispatch(setError(err.message));

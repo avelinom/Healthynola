@@ -49,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
   const handleLogout = async () => {
     handleMenuClose();
     await logout();
-    router.push('/login');
+    router.push('/landing');
   };
   
   const getBreadcrumbs = () => {
