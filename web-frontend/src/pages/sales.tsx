@@ -198,6 +198,9 @@ const Sales: NextPage = () => {
       
       for (const item of saleItems) {
         const product = activeProducts.find(p => p.nombre === item.product);
+        if (!product) {
+          throw new Error(`Producto no encontrado: ${item.product}`);
+        }
         
         // 3.1. Descontar del inventario
         const updateResponse = await fetch('/api/inventory/update-stock', {
