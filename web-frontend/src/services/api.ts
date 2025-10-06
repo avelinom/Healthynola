@@ -1,8 +1,14 @@
-// Detectar si estamos en móvil/red local y ajustar la URL del API
+// Detectar si estamos en móvil/red local/producción y ajustar la URL del API
 const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // Si accedemos desde una IP de red local, usar esa IP para el backend
+    
+    // Producción: si está en vercel.app, usar backend de Render
+    if (hostname.includes('vercel.app') || hostname.includes('healthynola')) {
+      return 'https://healthynola-backend.onrender.com/api';
+    }
+    
+    // Red local: si accedemos desde una IP de red local, usar esa IP para el backend
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       return `http://${hostname}:3001/api`;
     }
