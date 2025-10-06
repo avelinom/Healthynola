@@ -181,7 +181,7 @@ const LandingPage = () => {
                 fontFamily: 'monospace'
               }}
             >
-              GRUPO DAMMAD
+              Grupo MARAND
             </Typography>
           </Box>
           <Typography
@@ -375,7 +375,7 @@ const LandingPage = () => {
       >
         <Container maxWidth="lg">
           <Typography variant="body2" sx={{ opacity: 0.8 }}>
-            © 2025 Grupo DAMMAD - Todos los derechos reservados
+            © 2025 Grupo MARAND - Todos los derechos reservados
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.6, mt: 1 }}>
             Productos artesanales elaborados con amor y dedicación ❤️
