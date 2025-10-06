@@ -168,6 +168,7 @@ const LandingPage = () => {
           <Box
             sx={{
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               mb: 2
@@ -178,11 +179,23 @@ const LandingPage = () => {
               sx={{
                 fontWeight: 'bold',
                 color: '#333',
-                fontFamily: 'monospace'
+                fontFamily: 'monospace',
+                mb: 2
               }}
             >
               Grupo MARAND
             </Typography>
+            <Box
+              component="img"
+              src="/images/marand-logo.png"
+              alt="Grupo MARAND Logo"
+              sx={{
+                maxWidth: { xs: '250px', sm: '300px', md: '350px' },
+                width: '100%',
+                height: 'auto',
+                mb: 1
+              }}
+            />
           </Box>
           <Typography
             variant="h6"
