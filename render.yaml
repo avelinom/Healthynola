@@ -13,17 +13,12 @@ services:
       - key: PORT
         value: 3001
       - key: DATABASE_URL
-        fromDatabase:
-          name: healthynola-db
-          property: connectionString
+        value: postgresql://neondb_owner:npg_1UEBztQxaCX3@ep-silent-sky-adsoykyi-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
         value: https://healthynola.vercel.app
 
-databases:
-  - name: healthynola-db
-    databaseName: healthynola
-    plan: free
-    region: oregon
+# Database is hosted on Neon (external)
+# No need for Render database since we're using Neon
 
