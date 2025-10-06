@@ -174,17 +174,6 @@ const LandingPage = () => {
               mb: 2
             }}
           >
-            <Typography
-              variant="h3"
-              sx={{
-                fontWeight: 'bold',
-                color: '#333',
-                fontFamily: 'monospace',
-                mb: 2
-              }}
-            >
-              Grupo MARAND
-            </Typography>
             <Box
               component="img"
               src="/images/marand-logo.png"
@@ -193,7 +182,7 @@ const LandingPage = () => {
                 maxWidth: { xs: '250px', sm: '300px', md: '350px' },
                 width: '100%',
                 height: 'auto',
-                mb: 1
+                mb: 2
               }}
             />
           </Box>
