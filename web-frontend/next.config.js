@@ -3,8 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001'
+    // Use production URLs in Vercel, localhost otherwise
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 
+      (process.env.VERCEL ? 'https://healthynola-backend.onrender.com/api' : 'http://localhost:3001/api'),
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 
+      (process.env.VERCEL ? 'https://healthynola-backend.onrender.com' : 'http://localhost:3001')
   },
   async rewrites() {
     return [
