@@ -72,10 +72,17 @@ const Layout: React.FC<LayoutProps> = ({
       {/* App Bar */}
       <AppBar position="static" elevation={1}>
         <Toolbar>
-          <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, cursor: 'pointer' }}>
-              🥣 Healthynola POS
-            </Typography>
+          <Link href="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
+            <Box
+              component="img"
+              src="/images/marand-logo.png"
+              alt="Grupo MARAND"
+              sx={{
+                height: { xs: '35px', sm: '40px' },
+                width: 'auto',
+                cursor: 'pointer'
+              }}
+            />
           </Link>
           
           <Box sx={{ flexGrow: 1 }} />
@@ -182,7 +189,7 @@ const Layout: React.FC<LayoutProps> = ({
         }}
       >
         <Typography variant="body2">
-          © 2024 Healthynola POS. Todos los derechos reservados.
+          © 2025 Grupo MARAND. Todos los derechos reservados.
         </Typography>
       </Box>
     </Box>
