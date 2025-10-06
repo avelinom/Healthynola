@@ -80,7 +80,10 @@ const Layout: React.FC<LayoutProps> = ({
               sx={{
                 height: { xs: '50px', sm: '60px' },
                 width: 'auto',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                bgcolor: '#fafafa',
+                padding: '4px 8px',
+                borderRadius: '4px'
               }}
             />
           </Link>
