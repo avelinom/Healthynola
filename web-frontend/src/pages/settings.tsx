@@ -36,7 +36,12 @@ import {
   Lock as LockIcon,
   People as PeopleIcon,
   Download as DownloadIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  RocketLaunch as RocketIcon,
+  CheckCircle as CheckIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import Layout from '@/components/Layout';
 import { formatDistanceToNow } from 'date-fns';
@@ -44,6 +49,7 @@ import { es } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { useUsers } from '@/hooks/useUsers';
 import { useRouter } from 'next/router';
+import { apiService } from '@/services/api';
 
 interface Backup {
   fileName: string;
@@ -97,6 +103,13 @@ const Settings: NextPage = () => {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Production Readiness Dialog
+  const [openReadinessDialog, setOpenReadinessDialog] = useState(false);
+  const [readinessReport, setReadinessReport] = useState<any>(null);
+  const [checkingReadiness, setCheckingReadiness] = useState(false);
+  const [initializing, setInitializing] = useState(false);
+  const [initializationResult, setInitializationResult] = useState<any>(null);
 
   // Load backups on mount
   useEffect(() => {
@@ -247,6 +260,96 @@ const Settings: NextPage = () => {
 
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleCheckProductionReadiness = async () => {
+    try {
+      setCheckingReadiness(true);
+      setSnackbar({ open: true, message: 'Validando sistema...', severity: 'info' });
+      
+      const response = await apiService.checkProductionReadiness();
+      
+      if (response.success) {
+        setReadinessReport(response.data);
+        setOpenReadinessDialog(true);
+        
+        const severity = response.data.status === 'ready' ? 'success' 
+          : response.data.status === 'ready_with_warnings' ? 'warning' 
+          : 'error';
+        
+        setSnackbar({ 
+          open: true, 
+          message: response.data.message, 
+          severity 
+        });
+      } else {
+        setSnackbar({ 
+          open: true, 
+          message: 'Error al validar el sistema', 
+          severity: 'error' 
+        });
+      }
+    } catch (error) {
+      console.error('Error checking production readiness:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Error de conexión al validar el sistema', 
+        severity: 'error' 
+      });
+    } finally {
+      setCheckingReadiness(false);
+    }
+  };
+
+  const handleCloseReadinessDialog = () => {
+    setOpenReadinessDialog(false);
+    setInitializationResult(null);
+  };
+
+  const handleInitializeProduction = async () => {
+    if (!window.confirm('⚠️ ADVERTENCIA: Esta acción borrará todas las transacciones (ventas, gastos, transferencias, etc.) pero mantendrá productos, usuarios y configuración.\n\n¿Estás seguro de que deseas inicializar el sistema para producción?')) {
+      return;
+    }
+
+    try {
+      setInitializing(true);
+      setSnackbar({ open: true, message: 'Inicializando sistema...', severity: 'info' });
+
+      const response = await apiService.initializeProduction();
+
+      if (response.success) {
+        setInitializationResult(response.data);
+        setSnackbar({
+          open: true,
+          message: response.data.message || 'Sistema inicializado correctamente',
+          severity: 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Error al inicializar el sistema',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error initializing production:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error de conexión al inicializar el sistema',
+        severity: 'error'
+      });
+    } finally {
+      setInitializing(false);
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'error': return <ErrorIcon color="error" />;
+      case 'warning': return <WarningIcon color="warning" />;
+      case 'info': return <InfoIcon color="info" />;
+      default: return <CheckIcon color="success" />;
+    }
   };
 
   const getLastBackupTime = () => {
@@ -556,6 +659,48 @@ const Settings: NextPage = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          {/* Producción - Solo para Admin */}
+          {user?.role === 'admin' && (
+            <Grid item xs={12}>
+              <Card sx={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white'
+              }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RocketIcon />
+                    Puesta en Producción
+                  </Typography>
+                  <Divider sx={{ mb: 2, borderColor: 'rgba(255,255,255,0.3)' }} />
+                  
+                  <Typography variant="body2" sx={{ mb: 3, opacity: 0.9 }}>
+                    Valida que todos los componentes del sistema estén listos para lanzamiento a producción.
+                    Esta herramienta verifica módulos, usuarios, permisos, base de datos y configuraciones.
+                  </Typography>
+
+                  <Button 
+                    variant="contained" 
+                    size="large"
+                    fullWidth
+                    onClick={handleCheckProductionReadiness}
+                    disabled={checkingReadiness}
+                    startIcon={checkingReadiness ? <CircularProgress size={20} color="inherit" /> : <RocketIcon />}
+                    sx={{
+                      backgroundColor: 'white',
+                      color: '#667eea',
+                      fontWeight: 'bold',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.9)'
+                      }
+                    }}
+                  >
+                    {checkingReadiness ? 'Validando Sistema...' : 'Alistar Sistema para Producción'}
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
 
         {/* Change Password Dialog */}
@@ -598,6 +743,231 @@ const Settings: NextPage = () => {
             <Button onClick={handleChangePassword} variant="contained" color="primary">
               Cambiar Contraseña
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Production Readiness Report Dialog */}
+        <Dialog 
+          open={openReadinessDialog} 
+          onClose={handleCloseReadinessDialog} 
+          maxWidth="md" 
+          fullWidth
+          scroll="paper"
+        >
+          <DialogTitle sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            background: readinessReport?.status === 'ready' 
+              ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+              : readinessReport?.status === 'ready_with_warnings'
+              ? 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)'
+              : 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+            color: 'white'
+          }}>
+            <RocketIcon />
+            Reporte de Validación del Sistema
+            <IconButton
+              onClick={handleCloseReadinessDialog}
+              sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            {readinessReport && (
+              <Box>
+                {/* Status Summary */}
+                <Alert 
+                  severity={
+                    readinessReport.status === 'ready' ? 'success' 
+                    : readinessReport.status === 'ready_with_warnings' ? 'warning' 
+                    : 'error'
+                  }
+                  sx={{ mb: 3 }}
+                >
+                  <Typography variant="h6">{readinessReport.message}</Typography>
+                </Alert>
+
+                {/* Summary Stats */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid item xs={6} md={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="primary">
+                          {readinessReport.summary?.totalModules}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Módulos
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="success.main">
+                          {readinessReport.summary?.activeUsers}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Usuarios Activos
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="info.main">
+                          {readinessReport.summary?.existingTables}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Tablas BD
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <Card variant="outlined">
+                      <CardContent sx={{ textAlign: 'center' }}>
+                        <Typography variant="h4" color="secondary.main">
+                          {readinessReport.summary?.totalRecords}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Registros
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+
+                {/* Users by Role */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                  👥 Usuarios por Rol
+                </Typography>
+                <List dense>
+                  {readinessReport.users?.list?.map((user: any, index: number) => (
+                    <ListItem key={index}>
+                      <ListItemIcon>
+                        {user.active ? <CheckIcon color="success" /> : <ErrorIcon color="error" />}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={`${user.name} (${user.role})`}
+                        secondary={user.email}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+
+                {/* Modules by Role */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                  📊 Módulos por Rol
+                </Typography>
+                {Object.entries(readinessReport.modules?.roles || {}).map(([roleName, roleData]: [string, any]) => (
+                  <Card key={roleName} variant="outlined" sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                        {roleName}
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Web: <strong>{roleData.webAccess} módulos</strong>
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">
+                            Móvil: <strong>{roleData.mobileAccess} módulos</strong>
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Consignments */}
+                <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                  📦 Sistema de Consignaciones
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Consignaciones: <strong>{readinessReport.consignments?.totalConsignments}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Visitas: <strong>{readinessReport.consignments?.totalVisits}</strong>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Consignatarios: <strong>{readinessReport.consignments?.consignatarios}</strong>
+                    </Typography>
+                  </Grid>
+                </Grid>
+
+                {/* Suggestions */}
+                {readinessReport.suggestions && readinessReport.suggestions.length > 0 && (
+                  <>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                      💡 Sugerencias y Advertencias
+                    </Typography>
+                    <List>
+                      {readinessReport.suggestions.map((suggestion: any, index: number) => (
+                        <ListItem key={index}>
+                          <ListItemIcon>
+                            {getSeverityIcon(suggestion.severity)}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={suggestion.message}
+                            secondary={`Acción: ${suggestion.action}`}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
+            <Button onClick={handleCloseReadinessDialog} variant="outlined">
+              Cerrar
+            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {!initializationResult && readinessReport?.status === 'ready' && (
+                <Button 
+                  variant="contained" 
+                  color="warning"
+                  startIcon={initializing ? <CircularProgress size={20} color="inherit" /> : <BackupIcon />}
+                  onClick={handleInitializeProduction}
+                  disabled={initializing}
+                >
+                  {initializing ? 'Inicializando...' : 'Inicializar Sistema'}
+                </Button>
+              )}
+              {initializationResult && (
+                <Alert severity="success" sx={{ flex: 1 }}>
+                  <Typography variant="body2" fontWeight="bold">
+                    {initializationResult.message}
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    {initializationResult.cleanup?.totalDeleted || 0} registros eliminados
+                  </Typography>
+                  {initializationResult.backup?.filename && (
+                    <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                      💾 Backup: {initializationResult.backup.filename} ({initializationResult.backup.size || 'N/A'})
+                    </Typography>
+                  )}
+                  {initializationResult.report?.filename && (
+                    <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                      📄 Reporte: {initializationResult.report.filename}
+                    </Typography>
+                  )}
+                </Alert>
+              )}
+            </Box>
           </DialogActions>
         </Dialog>
 

@@ -346,6 +346,19 @@ class ApiService {
       body: JSON.stringify({ role, permissions })
     });
   }
+
+  // System API
+  async checkProductionReadiness() {
+    return this.request<{ success: boolean; data: any; message?: string }>('/system/production-readiness', {
+      method: 'POST'
+    });
+  }
+
+  async initializeProduction() {
+    return this.request<{ success: boolean; data: any; message?: string }>('/system/initialize-production', {
+      method: 'POST'
+    });
+  }
 }
 
 export const apiService = new ApiService();

@@ -33,6 +33,7 @@ const packagingTypesRoutes = require('./routes/packagingTypes');
 const warehousesRoutes = require('./routes/warehouses');
 const consignmentsRoutes = require('./routes/consignments');
 const usersRoutes = require('./routes/users');
+const systemRoutes = require('./routes/system');
 
 const app = express();
 const server = createServer(app);
@@ -113,6 +114,7 @@ app.use('/api/packaging-types', packagingTypesRoutes);
 app.use('/api/warehouses', warehousesRoutes);
 app.use('/api/consignments', consignmentsRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/system', systemRoutes);
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
