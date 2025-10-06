@@ -273,15 +273,15 @@ const Settings: NextPage = () => {
         setReadinessReport(response.data);
         setOpenReadinessDialog(true);
         
-        const severity = response.data.status === 'ready' ? 'success' 
-          : response.data.status === 'ready_with_warnings' ? 'warning' 
-          : 'error';
-        
-        setSnackbar({ 
-          open: true, 
-          message: response.data.message, 
-          severity 
-        });
+      const severity = response.data.status === 'ready' ? 'success' 
+        : response.data.status === 'ready_with_warnings' ? 'info' 
+        : 'error';
+      
+      setSnackbar({ 
+        open: true, 
+        message: response.data.message, 
+        severity 
+      });
       } else {
         setSnackbar({ 
           open: true, 
