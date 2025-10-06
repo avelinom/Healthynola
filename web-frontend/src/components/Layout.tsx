@@ -70,7 +70,7 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* App Bar */}
-      <AppBar position="static" elevation={1}>
+      <AppBar position="static" elevation={1} sx={{ bgcolor: 'white' }}>
         <Toolbar>
           <Link href="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
             <Box
@@ -78,7 +78,7 @@ const Layout: React.FC<LayoutProps> = ({
               src="/images/marand-logo.png"
               alt="Grupo MARAND"
               sx={{
-                height: { xs: '35px', sm: '40px' },
+                height: { xs: '50px', sm: '60px' },
                 width: 'auto',
                 cursor: 'pointer'
               }}
@@ -91,18 +91,22 @@ const Layout: React.FC<LayoutProps> = ({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Chip
                 label={user.role}
-                size="small"
+                size="medium"
                 color="secondary"
                 variant="outlined"
-                sx={{ color: 'white', borderColor: 'white' }}
+                sx={{ 
+                  color: '#333', 
+                  borderColor: '#333',
+                  fontWeight: 500
+                }}
               />
-              <Typography variant="body2" sx={{ color: 'white' }}>
+              <Typography variant="body1" sx={{ color: '#333', fontWeight: 500 }}>
                 {user.name}
               </Typography>
               <IconButton
-                color="inherit"
                 onClick={handleMenuOpen}
                 size="small"
+                sx={{ color: '#333' }}
               >
                 <AccountIcon />
               </IconButton>
