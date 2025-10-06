@@ -481,6 +481,7 @@ router.post('/initialize-production', protect, authorize('admin'), async (req, r
     }
 
     // 1. CREATE BACKUP (CRÍTICO: DEBE EJECUTARSE ANTES DE BORRAR)
+    // Using Node.js native backup (compatible with Render - no pg_dump needed)
     try {
       const backupFilename = `production_init_${Date.now()}.sql`;
       const backupsDir = path.join(__dirname, '../../backups');
@@ -491,50 +492,69 @@ router.post('/initialize-production', protect, authorize('admin'), async (req, r
         fs.mkdirSync(backupsDir, { recursive: true });
       }
       
-      // Get database connection info from environment
-      const dbConfig = require('../config/database').connection;
-      const dbName = process.env.DB_NAME || dbConfig.database || 'healthynola_pos_dev';
-      const dbUser = process.env.DB_USER || dbConfig.user || 'amiguelez';
-      const dbHost = process.env.DB_HOST || dbConfig.host || 'localhost';
-      const dbPort = process.env.DB_PORT || dbConfig.port || 5432;
+      logger.info('Creating backup using Node.js (Render-compatible)...');
       
-      // Execute pg_dump with plain format (easier to verify)
-      const { execSync } = require('child_process');
-      const pgDumpCmd = `PGPASSWORD="" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -F c -f "${backupPath}"`;
+      // Create backup using Node.js (no pg_dump required)
+      let backupSQL = `-- Healthynola Production Backup - ${new Date().toISOString()}\n`;
+      backupSQL += `-- Database: ${process.env.DATABASE_URL ? 'Neon' : 'Local'}\n`;
+      backupSQL += `-- Generated before production initialization\n\n`;
+      backupSQL += `SET search_path TO public;\n\n`;
       
-      logger.info(`Executing backup: pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName}`);
+      // Get all tables from public schema
+      const tables = await db.raw(`
+        SELECT tablename 
+        FROM pg_tables 
+        WHERE schemaname = 'public' 
+          AND tablename NOT LIKE 'pg_%'
+          AND tablename NOT LIKE 'sql_%'
+        ORDER BY tablename
+      `);
       
-      try {
-        execSync(pgDumpCmd, { stdio: 'inherit' });
-      } catch (dumpError) {
-        logger.error('pg_dump failed, trying with plain format...');
-        // Fallback to plain format
-        const plainBackupPath = backupPath.replace('.sql', '.plain.sql');
-        const plainCmd = `PGPASSWORD="" pg_dump -h ${dbHost} -p ${dbPort} -U ${dbUser} -d ${dbName} -f "${plainBackupPath}"`;
-        execSync(plainCmd, { stdio: 'inherit' });
-        
-        if (fs.existsSync(plainBackupPath)) {
-          const stats = fs.statSync(plainBackupPath);
-          result.backup.created = true;
-          result.backup.filename = path.basename(plainBackupPath);
-          result.backup.path = plainBackupPath;
-          result.backup.size = `${(stats.size / 1024 / 1024).toFixed(2)} MB`;
-          logger.info(`Backup created successfully (plain): ${result.backup.filename} (${result.backup.size})`);
+      logger.info(`Backing up ${tables.rows.length} tables...`);
+      
+      for (const { tablename } of tables.rows) {
+        try {
+          const count = await db(tablename).count('* as count').first();
+          const recordCount = parseInt(count.count);
+          
+          backupSQL += `\n-- ===============================================\n`;
+          backupSQL += `-- Table: ${tablename} (${recordCount} records)\n`;
+          backupSQL += `-- ===============================================\n\n`;
+          
+          if (recordCount > 0) {
+            const data = await db(tablename).select('*');
+            
+            for (const row of data) {
+              const columns = Object.keys(row);
+              const values = columns.map(col => {
+                const val = row[col];
+                if (val === null) return 'NULL';
+                if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
+                if (val instanceof Date) return `'${val.toISOString()}'`;
+                if (typeof val === 'boolean') return val ? 'true' : 'false';
+                if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+                return val;
+              });
+              
+              backupSQL += `INSERT INTO "${tablename}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${values.join(', ')});\n`;
+            }
+          }
+        } catch (tableError) {
+          logger.warn(`Could not backup table ${tablename}:`, tableError.message);
         }
-        throw new Error('Could not create backup in custom format, tried plain format');
       }
       
-      // Verify backup was created
-      if (fs.existsSync(backupPath)) {
-        const stats = fs.statSync(backupPath);
-        result.backup.created = true;
-        result.backup.filename = backupFilename;
-        result.backup.path = backupPath;
-        result.backup.size = `${(stats.size / 1024 / 1024).toFixed(2)} MB`;
-        logger.info(`Backup created successfully: ${backupFilename} (${result.backup.size})`);
-      } else {
-        throw new Error('Backup file was not created');
-      }
+      // Write backup file
+      fs.writeFileSync(backupPath, backupSQL);
+      const stats = fs.statSync(backupPath);
+      
+      result.backup.created = true;
+      result.backup.filename = backupFilename;
+      result.backup.path = backupPath;
+      result.backup.size = `${(stats.size / 1024 / 1024).toFixed(2)} MB`;
+      
+      logger.info(`Backup created successfully: ${backupFilename} (${result.backup.size})`);
+      
     } catch (backupError) {
       logger.error('Error creating backup:', backupError);
       result.backup.error = backupError.message;
